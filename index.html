@@ -1,0 +1,2596 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taladro — tracker de hábitos para trading</title>
+<meta name="description" content="Lee tus operaciones de Hyperliquid y trade.xyz y mide lo que hacés, no lo que ganás. No pide clave privada.">
+<meta property="og:title" content="Taladro">
+<meta property="og:description" content="Un tracker de hábitos para gente que opera. Mira lo que hacés, no lo que ganás.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0a0d11">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0d11; --panel:#131820; --panel2:#1a212b; --line:#242d3a;
+    --txt:#e6edf3; --mut:#7d8896; --acc:#58a6ff; --up:#3fb950; --down:#f85149; --warn:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px 20px 64px}
+  h1{font-size:20px;margin:0 0 2px;letter-spacing:-.3px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,select,button{font:inherit;background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:7px;padding:8px 11px;outline:none}
+  input:focus,select:focus{border-color:var(--acc)}
+  input.addr{flex:1;min-width:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+  button{cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);color:#06121f;border-color:var(--acc);font-weight:600}
+  button.primary:hover{filter:brightness(1.1)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .status{font-size:13px;color:var(--mut);margin-top:10px;min-height:19px}
+  .status.err{color:var(--down)}
+  .hint{font-size:12px;color:var(--mut);margin-top:10px;line-height:1.6}
+  .hint code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px;margin-bottom:16px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .kpi .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .kpi .val{font-size:21px;font-weight:600;margin-top:5px;letter-spacing:-.5px}
+  .kpi .note{font-size:11px;color:var(--mut);margin-top:3px}
+  .up{color:var(--up)} .down{color:var(--down)} .mut{color:var(--mut)}
+  h2{font-size:14px;margin:0 0 13px;color:var(--txt);text-transform:uppercase;letter-spacing:.7px}
+  .ins{border-left:3px solid var(--mut);background:var(--panel2);border-radius:0 8px 8px 0;
+    padding:11px 14px;margin-bottom:9px}
+  .ins.bad{border-color:var(--down)} .ins.warn{border-color:var(--warn)}
+  .ins.good{border-color:var(--up)} .ins.info{border-color:var(--acc)}
+  .ins .t{font-weight:600;margin-bottom:3px}
+  .ins .d{color:#b3bdc9;font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  canvas{max-height:260px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--mut);font-weight:500;text-align:right;cursor:pointer;user-select:none;font-size:11px;
+    text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;background:var(--panel)}
+  th:hover{color:var(--acc)}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  .scroll{max-height:460px;overflow:auto}
+  .tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--panel2)}
+  .hide{display:none}
+  .tag.liq{background:#f8514922;color:var(--down);border:1px solid #f8514955;font-weight:600}
+  #resumen{margin-bottom:12px}
+  .r{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+     padding:16px 18px;margin-bottom:8px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .r .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;
+     min-width:78px;flex-shrink:0}
+  .r .big{font-size:26px;font-weight:600;letter-spacing:-.6px}
+  .r .sub{font-size:13px;color:var(--mut)}
+  .r.aviso{border-left:3px solid var(--warn);display:block}
+  .r.aviso.bad{border-left-color:var(--down)}
+  .r.aviso .t{font-weight:600;margin-bottom:2px}
+  .r.aviso .d{font-size:13px;color:#b3bdc9}
+  #verMas{width:100%;margin-bottom:16px;color:var(--mut)}
+  /* ---- Taladro flotante ---- */
+  .tal{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column;
+    align-items:flex-end;gap:9px;max-width:min(370px,calc(100vw - 40px))}
+  .globo{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 30px 13px 15px;
+    font-size:13.5px;line-height:1.55;box-shadow:0 10px 34px #000a;position:relative;display:none;color:#dbe3ec}
+  .tal.habla .globo{display:block;animation:aparece .18s ease-out}
+  @keyframes aparece{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .globo:after{content:"";position:absolute;right:28px;bottom:-7px;width:12px;height:12px;background:var(--panel);
+    border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+  .tal.alerta .globo{border-color:var(--down)} .tal.seco .globo{border-color:var(--warn)}
+  .tal.ok .globo{border-color:var(--up)}
+  .globo .et{display:block;font-style:normal;font-size:10px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--mut);margin-bottom:5px}
+  .globo .mas{display:block;font-style:normal;font-size:10.5px;color:var(--mut);margin-top:8px;
+    padding-top:7px;border-top:1px solid var(--line)}
+  .tal.ok .globo .et{color:var(--up)} .tal.info .globo .et{color:var(--acc)}
+  .tal.seco .globo .et{color:var(--warn)}
+  .cierra{position:absolute;top:5px;right:9px;color:var(--mut);cursor:pointer;font-style:normal;font-size:16px;line-height:1}
+  .cierra:hover{color:var(--txt)}
+  .cuerpo{background:var(--panel);border:1px solid var(--line);border-radius:50%;width:62px;height:62px;padding:0;
+    display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 22px #000a}
+  .tal.alerta .cuerpo{border-color:var(--down)} .tal.seco .cuerpo{border-color:var(--warn)}
+  .tal.ok .cuerpo{border-color:var(--up)}
+  .cuerpo svg{width:40px;height:40px;color:var(--mut);transition:color .3s}
+  .tal.alerta .cuerpo svg{color:var(--down)} .tal.seco .cuerpo svg{color:var(--warn)}
+  .tal.ok .cuerpo svg{color:var(--up)}
+  .tal.info .globo,.tal.info .cuerpo{border-color:var(--acc)}
+  .tal.info .cuerpo svg{color:var(--acc)}
+  [data-tal]{cursor:help}
+  [data-tal]:hover{background:color-mix(in srgb, var(--acc) 7%, transparent);border-radius:8px}
+  .tal.habla .cuerpo{animation:vibra .11s linear infinite}
+  @keyframes vibra{0%,100%{transform:translate(0,0)}25%{transform:translate(.8px,-.8px)}75%{transform:translate(-.8px,.8px)}}
+  .bit{stroke-dasharray:2.5 2.5}
+  .tal.habla .bit{animation:gira .45s linear infinite}
+  @keyframes gira{to{stroke-dashoffset:-5}}
+  /* ---- hábitos ---- */
+  .hab{display:grid;grid-template-columns:1fr 120px 190px;gap:14px;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--line)}
+  .hab:last-child{border-bottom:0}
+  .hab .hn{font-weight:600;font-size:13.5px}
+  .hab .hn span{display:block;font-weight:400;font-size:11.5px;color:var(--mut);margin-top:2px}
+  .hab .hmid{display:flex;flex-direction:column;gap:6px}
+  .hab .dots{display:flex;gap:2px}
+  .hab .dots i{flex:1;height:9px;border-radius:2px;background:var(--panel2)}
+  .hab .dots i.s{background:var(--up)} .hab .dots i.n{background:var(--down);opacity:.75}
+  .hab .hb{height:5px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .hab .hb div{height:100%;background:var(--up);border-radius:4px;transition:width .4s}
+  .hab.roto .hb div{background:var(--warn)}
+  .hab .hv{font-size:12.5px;text-align:right;color:var(--mut)}
+  .hab .hv b{font-size:17px;color:var(--txt)}
+  .hab .hv span{display:block;font-size:11px;margin-top:1px}
+  .campo{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:7px}
+  .campo input{width:82px;color:var(--txt);font-size:14px}
+  .campo select,.campo input[data-f]{width:auto;color:var(--txt)}
+  td.nc,th.nc{text-align:center;width:44px}
+  .nota{background:transparent;border:1px solid var(--line);border-radius:6px;padding:2px 8px;
+    color:var(--mut);font-size:12px;line-height:1.4}
+  .nota:hover{border-color:var(--acc);color:var(--acc)}
+  .nota.on{color:var(--acc);border-color:var(--acc)}
+  tr.ed td{background:var(--panel2);padding:12px 14px}
+  .edrow{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:9px}
+  tr.ed textarea{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;
+    color:var(--txt);padding:8px 10px;font:inherit;font-size:12.5px;resize:vertical}
+  tr.ed textarea:focus{border-color:var(--acc);outline:none}
+  #archivo{font-size:12px}
+  .rf{display:grid;grid-template-columns:150px 1fr 48px;gap:12px;align-items:center;padding:6px 0}
+  .rf .rk{font-size:13px;color:#b3bdc9}
+  .rf .rb{height:12px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .rf .rb div{height:100%;background:linear-gradient(90deg,var(--warn),var(--down));border-radius:6px;transition:width .5s}
+  .rf .rp{font-size:14px;font-weight:600;text-align:right}
+  #presu{margin:12px 0 4px}
+  .pb{position:relative;height:14px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .pbf{height:100%;border-radius:7px;transition:width .5s}
+  .pbf.up{background:var(--up)} .pbf.warn{background:var(--warn)} .pbf.down{background:var(--down)}
+  .pbm{position:absolute;left:66%;top:-3px;bottom:-3px;width:2px;background:var(--txt);opacity:.55}
+  .pl{font-size:12.5px;color:#b3bdc9;margin-top:7px}
+  @media(max-width:600px){.rf{grid-template-columns:110px 1fr 42px;gap:8px}.rf .rk{font-size:12px}}
+  /* el alta de wallet ocupa toda la pantalla una sola vez; después se hace una línea */
+  .chip{display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    color:var(--mut);background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:6px 13px}
+  #cambiar{display:none}
+  #setup.compacto{padding:9px 14px;margin-bottom:12px}
+  #setup.compacto .addr,#setup.compacto #go,#setup.compacto #loadBtn,
+  #setup.compacto #saveBtn,#setup.compacto #linkBtn,#setup.compacto #hint{display:none}
+  #setup.compacto .chip,#setup.compacto #cambiar{display:inline-flex}
+  #setup.compacto #status{margin:0;font-size:11.5px;opacity:.75}
+  #setup.compacto .row{gap:8px}
+  #calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0 4px}
+  #calc div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  #calc div span{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  #calc div b{font-size:19px;font-weight:600}
+  #calc div.mal{border-color:var(--down)}
+  #prepNotas div{font-size:12.5px;color:#b3bdc9;padding:4px 0 4px 17px;position:relative}
+  #prepNotas div:before{content:"·";position:absolute;left:5px;color:var(--acc);font-weight:700}
+  #vivo{font-size:12px}
+  .rel{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--mut);
+    padding:9px 14px;background:var(--panel);border:1px solid var(--line);border-radius:9px;margin-bottom:10px}
+  .rel b{color:var(--txt);font-weight:600}
+  .rel .ev{color:var(--warn);border-left:1px solid var(--line);padding-left:10px}
+  .rel .ev b{color:var(--warn)}
+  .rel .vt{background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 10px;font-size:11px}
+  .enp{font-size:38px;font-weight:650;letter-spacing:-1.2px;margin:10px 0 14px;line-height:1}
+  .enp span{display:block;font-size:13px;font-weight:400;color:var(--mut);letter-spacing:0;margin-top:6px}
+  .pblk{margin-bottom:12px}
+  .pblk .ph{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;font-size:14px;font-weight:600}
+  .pblk .ph b{margin-left:auto;font-size:15px}
+  .eng{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin-bottom:14px}
+  .eng div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:14px}
+  .eng div span{display:block;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+  .anc{font-size:13px;line-height:1.55;padding:9px 12px;border-left:3px solid var(--line);
+    background:var(--panel2);border-radius:0 8px 8px 0;margin-bottom:7px;color:#b9c3d0}
+  .anc.good{border-color:var(--up)} .anc.warn{border-color:var(--warn)}
+  .anc.bad{border-color:var(--down)} .anc.info{border-color:var(--acc)}
+  .mej{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:0 10px 10px 0;padding:13px 15px;margin:12px 0 4px}
+  .mej .mt{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .mej .mb{font-size:17px;font-weight:600;margin:5px 0 6px;letter-spacing:-.2px}
+  .mej .mn{font-size:12.5px;color:#b3bdc9}
+  .mej .mu{font-size:12px;color:var(--mut);margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
+  @media(max-width:700px){.hab{grid-template-columns:1fr;gap:6px}.hab .hv{text-align:left}}
+  #rules{margin-top:14px;border-top:1px solid var(--line);padding-top:13px}
+  #rules div{color:#b3bdc9;font-size:13px;padding:4px 0 4px 18px;position:relative}
+  #rules div:before{content:"→";position:absolute;left:0;color:var(--acc)}
+  #sessNow b{color:var(--acc)}
+  #tAdh td.d{font-size:11px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{border:0;border-radius:0;background:var(--panel2);padding:8px 14px}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--acc);color:#06121f;font-weight:600}
+  #sessStrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;margin:14px 0}
+  .ss{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .ss.now{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .ss .n{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .ss .h{font-size:11px;color:var(--mut);margin-top:1px}
+  .ss .v{font-size:15px;font-weight:600;margin-top:4px}
+  .pos{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:10px}
+  .pos .hd{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px}
+  .pos .hd .sym{font-size:16px;font-weight:600}
+  .pos .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:8px 14px;margin-bottom:9px}
+  .pos .g div span{display:block;font-size:11px;color:var(--mut)}
+  .pos .a{font-size:12.5px;padding:3px 0 3px 16px;position:relative;color:#b3bdc9}
+  .pos .a:before{content:"●";position:absolute;left:0;font-size:9px;top:5px}
+  .pos .a.bad:before{color:var(--down)} .pos .a.warn:before{color:var(--warn)}
+  .pos .a.good:before{color:var(--up)} .pos .a.info:before{color:var(--acc)}
+  .foot{color:var(--mut);font-size:12px;margin-top:26px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Taladro</h1>
+  <div class="sub" id="lema">Un tracker de hábitos para gente que opera. Mira lo que hacés, no lo que ganás:
+    sostiene lo que ya te sale bien y te avisa antes de las que se pagan caro. Nada de consejos.</div>
+
+  <div class="panel" id="setup">
+    <div class="row">
+      <span class="chip" id="chip"></span>
+      <input class="addr" id="addr" placeholder="0x… dirección de la wallet" spellcheck="false">
+      <button class="primary" id="go">Analizar</button>
+      <button id="cambiar">Cambiar wallet</button>
+      <button id="btnVivo" disabled>▶ En vivo</button>
+      <button id="loadBtn">Cargar JSON</button>
+      <button id="saveBtn" disabled>Guardar copia</button>
+      <button id="linkBtn">Vincular archivo</button>
+      <span class="mut" id="vivo"></span>
+      <span class="mut" id="archivo"></span>
+      <input type="file" id="file" accept=".json" class="hide">
+    </div>
+    <div class="status" id="status"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div id="app" class="hide">
+
+    <div id="reloj" class="rel"></div>
+    <div id="resumen"></div>
+
+    <div class="panel hide" id="enTrade">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">En posición</h2>
+        <span class="mut" id="enTiempo"></span>
+      </div>
+      <div id="enPnl"></div>
+      <div id="enDatos"></div>
+      <div id="enAncla"></div>
+    </div>
+
+    <div class="panel hide" id="prepPanel">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">La próxima</h2>
+        <span class="mut" id="prepSes"></span>
+      </div>
+      <div id="mejorar"></div>
+      <div class="row" style="margin-top:12px">
+        <label class="campo">Stop planeado <input id="stopPct" type="number" step="0.05" min="0.05" value="1"> %</label>
+        <label class="campo">Riesgo máximo <input id="riesgo" type="number" step="0.01" min="0.01"> USD</label>
+      </div>
+      <div id="calc"></div>
+      <div id="presu"></div>
+      <div id="prepNotas"></div>
+    </div>
+
+    <button id="verMas">Ver los números</button>
+
+    <div id="detalle" class="hide">
+    <div class="panel">
+      <div class="row">
+        <span class="seg" id="preset">
+          <button data-p="hoy" class="on">Hoy</button><button data-p="7d">7 días</button><button data-p="all">Todo</button>
+        </span>
+        <select id="fDex"></select>
+        <select id="fSym"></select>
+        <select id="fSide">
+          <option value="">Long y short</option><option value="long">Solo long</option><option value="short">Solo short</option>
+        </select>
+        <input type="date" id="fFrom"><input type="date" id="fTo">
+        <button id="reset">Limpiar filtros</button>
+        <span class="mut" id="count"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="dayPanel">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">Preparación del día</h2>
+        <span class="mut" id="sessNow"></span>
+      </div>
+      <div id="sessStrip"></div>
+      <div id="livePos"></div>
+      <div id="alerts"></div>
+      <div id="rules"></div>
+    </div>
+
+    <div class="panel" id="habPanel">
+      <h2>Hábitos</h2>
+      <div id="habitos"></div>
+      <div class="hint">Acciones que dependieron de vos. El resultado no entra: se puede perder plata
+        con la técnica impecable y ganarla haciendo cualquier cosa.</div>
+    </div>
+
+    <div class="panel" id="rachaPanel">
+      <h2>Rachas: qué es normal</h2>
+      <div id="rachas"></div>
+      <div class="hint" id="rachaPie"></div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="panel" id="adhPanel">
+      <h2>Adherencia técnica — últimas 20 contra todo lo anterior</h2>
+      <table id="tAdh"></table>
+      <div class="hint">Las flechas marcan en qué dirección se movió cada métrica entre los dos períodos.</div>
+    </div>
+
+    <div class="panel" id="mitPanel">
+      <h2>Primera mitad contra segunda mitad</h2>
+      <table id="tMit"></table>
+      <div class="hint">Tu muestra partida al medio por fecha. Si un número cambia mucho entre las dos mitades,
+        lo que estás midiendo es tu época y no tu método.</div>
+    </div>
+
+    <div class="panel" id="compPanel">
+      <h2>Qué rindió cada contexto</h2>
+      <table id="tComp"></table>
+      <div class="hint">Promedio por operación de cada grupo contra el resto. <b>Estable</b> significa que la
+        diferencia aparece en las dos mitades de tu historial; si no, probablemente describa una época y no el contexto.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Qué dicen tus datos — historial completo</h2>
+      <div id="insights"></div>
+    </div>
+
+    <div class="panel">
+      <h2>PnL acumulado neto</h2>
+      <canvas id="cEquity"></canvas>
+    </div>
+
+    <div class="panel" id="cuentaPanel">
+      <h2>Valor de la cuenta</h2>
+      <canvas id="cCuenta"></canvas>
+      <div class="hint">Serie real que informa el exchange. A diferencia del PnL acumulado, incluye
+        depósitos y retiros: es lo que efectivamente tuviste en la cuenta.</div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><h2>Resultado por sesión</h2><canvas id="cSess"></canvas></div>
+      <div class="panel"><h2>Resultado por símbolo</h2><canvas id="cSym"></canvas></div>
+      <div class="panel">
+        <h2>Resultado por hora de entrada</h2>
+        <canvas id="cHour"></canvas>
+        <div class="hint">El eje arranca a las 21:00, cuando abre Asia, para que ninguna sesión quede
+          partida entre los dos extremos. Color por sesión.</div>
+      </div>
+      <div class="panel">
+        <h2>Cuándo operás</h2>
+        <div id="relojAct"></div>
+        <div class="hint">Veinticuatro horas en círculo, hora de Buenos Aires. El largo de cada gajo es
+          cuántas operaciones hiciste en esa hora y el color si esa hora te suma o te resta.</div>
+      </div>
+      <div class="panel"><h2>Resultado por duración</h2><canvas id="cDur"></canvas></div>
+      <div class="panel"><h2>Distribución de resultados</h2><canvas id="cDist"></canvas></div>
+    </div>
+
+    <div class="panel" id="openPanel">
+      <h2>Posiciones abiertas</h2>
+      <div class="scroll"><table id="tOpen"></table></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Operaciones</h2>
+        <button id="csv">Exportar CSV</button>
+      </div>
+      <div class="scroll" style="margin-top:12px"><table id="tTrades"></table></div>
+    </div>
+
+    <div class="foot">
+      Los datos salen de la API pública de Hyperliquid (<code>userFillsByTime</code>, <code>userFunding</code>)
+      para la dirección que cargues. Todo se procesa en tu navegador: nada se envía a ningún servidor.
+      El PnL bruto es el <code>closedPnl</code> que reporta el exchange; el neto le resta fees y le suma o resta el funding
+      atribuido a la ventana de cada trade. Los trades se arman de posición plana a posición plana, así que un
+      scale-in cuenta como una sola operación. Las liquidaciones se detectan por el campo <code>liquidation</code> del fill,
+      no por <code>dir</code>, que dice "Close" igual que un cierre voluntario. Las sesiones se clasifican por el reloj del
+      subyacente en Nueva York y se muestran en hora de Buenos Aires; todas las horas de esta página, incluido el CSV,
+      son locales. Esto es un registro de lo que hiciste, no asesoramiento financiero.
+    </div>
+    </div>
+  </div>
+</div>
+
+<div id="tal" class="tal silencio">
+  <div class="globo"><i class="cierra" id="cierra">×</i><span id="dice"></span></div>
+  <button class="cuerpo" id="cuerpo" title="Taladro"></button>
+</div>
+
+<script>
+/* ===== Motor de reconstrucción de trades y analítica (Hyperliquid / trade.xyz) ===== */
+
+function sgn(x) { return x > 0 ? 1 : x < 0 ? -1 : 0; }
+const EPS = 1e-9;
+
+/* Un fill de Hyperliquid:
+   { coin, px, sz, side: 'B'|'A', time, closedPnl, fee, dir, oid, hash, tid }
+   Los perps HIP-3 (trade.xyz) llegan con el dex como prefijo: "xyz:AAPL". */
+function parseCoin(coin) {
+  const i = coin.indexOf(':');
+  return i === -1
+    ? { dex: 'hyperliquid', symbol: coin }
+    : { dex: coin.slice(0, i), symbol: coin.slice(i + 1) };
+}
+
+/* ===== Sesiones =====
+   El subyacente de estos perps son acciones: el perp opera 24/5 pero el mercado real no.
+   Clasificamos por el reloj de Nueva York (maneja el horario de verano solo) y mostramos
+   todo en hora de Buenos Aires (UTC-3, sin DST). */
+const SESSIONS = {
+  asia:    { label: 'Asia / KRX',      art: '21:00 - 03:30' },
+  hueco:   { label: 'Hueco nocturno',  art: '03:30 - 05:00' },
+  pre:     { label: 'Pre-market US',   art: '05:00 - 10:30' },
+  rueda:   { label: 'Rueda US',        art: '10:30 - 17:00' },
+  after:   { label: 'After-hours US',  art: '17:00 - 21:00' },
+  finde:   { label: 'Fin de semana',   art: 'vie 21:00 - dom 21:00' }
+};
+
+let _etFmt = null;
+function etParts(ts) {
+  try {
+    if (!_etFmt) _etFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hour12: false,
+      weekday: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    const p = {};
+    for (const x of _etFmt.formatToParts(new Date(ts))) p[x.type] = x.value;
+    const dows = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return { dow: dows[p.weekday], min: (+p.hour % 24) * 60 + (+p.minute) };
+  } catch (e) {
+    // sin Intl: caemos a UTC-4 como aproximación
+    const d = new Date(ts - 4 * 36e5);
+    return { dow: d.getUTCDay(), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
+  }
+}
+
+function sessionOf(ts) {
+  const { dow, min } = etParts(ts);
+  // Mercado cerrado en trade.xyz: viernes 20:00 ET -> domingo 20:00 ET
+  if (dow === 6 || (dow === 5 && min >= 1200) || (dow === 0 && min < 1200)) return 'finde';
+  if (min >= 1200 || min < 150) return 'asia';    // 20:00 - 02:30 ET
+  if (min < 240) return 'hueco';                  // 02:30 - 04:00
+  if (min < 570) return 'pre';                    // 04:00 - 09:30
+  if (min < 960) return 'rueda';                  // 09:30 - 16:00
+  return 'after';                                 // 16:00 - 20:00
+}
+
+/* ===== Calendario y reloj =====
+   Solo hechos: los horarios de las sesiones y las fechas del Fed. Ningún pronóstico
+   sobre qué va a hacer el precio; las ventanas se usan para etiquetar y después medir. */
+const FOMC = ['2026-01-28','2026-03-18','2026-04-29','2026-06-17','2026-07-29','2026-09-16','2026-10-28','2026-12-09'];
+
+let _etDia = null;
+function etFecha(ts) {
+  try {
+    if (!_etDia) _etDia = new Intl.DateTimeFormat('en-CA',
+      { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+    return _etDia.format(new Date(ts));
+  } catch (e) { return new Date(ts - 4 * 36e5).toISOString().slice(0, 10); }
+}
+
+/* Ventana de evento de una operación. Comunicado 14:00 ET, conferencia 14:30 ET. */
+function ventanaEvento(ts) {
+  const dia = etFecha(ts), { min } = etParts(ts);
+  if (FOMC.indexOf(dia) >= 0) {
+    if (min < 840) return { id: 'previa',      label: 'Fed · antes del anuncio' };
+    if (min < 870) return { id: 'impulso',     label: 'Fed · primera media hora' };
+    if (min < 900) return { id: 'conferencia', label: 'Fed · conferencia' };
+    return { id: 'post', label: 'Fed · después de la conferencia' };
+  }
+  const hoy = Date.parse(dia);
+  for (const d of FOMC) {
+    const dif = Math.round((hoy - Date.parse(d)) / 864e5);
+    if (dif === 1) return { id: 'dia1',  label: 'Día después del Fed' };
+    if (dif === 2 || dif === 3) return { id: 'dia23', label: 'Dos o tres días después del Fed' };
+  }
+  return null;
+}
+
+/* Próximo cambio estructural del día, en hora de Buenos Aires. */
+function relojSesion(now) {
+  now = now || Date.now();
+  const { dow, min } = etParts(now);
+  const seg = Math.floor(now / 1000) % 60;
+  const faltan = m => (m - min) * 60000 - seg * 1000;
+  const HITOS = [
+    [240,  'Abre el pre-market',      '05:00'],
+    [570,  'Abre la rueda US',        '10:30'],
+    [960,  'Cierra la rueda US',      '17:00'],
+    [1200, 'Cierra el perp, abre Asia', '21:00']
+  ];
+  let prox = null;
+  for (const [m, lab, art] of HITOS) if (m > min) { prox = { label: lab, art, ms: faltan(m) }; break; }
+  if (!prox) prox = { label: 'Abre el pre-market', art: '05:00', ms: faltan(240 + 1440) };
+  if (dow === 5 && min < 1200) prox = { label: 'Cierra por el fin de semana', art: '21:00', ms: faltan(1200) };
+
+  let evento = null;
+  if (FOMC.indexOf(etFecha(now)) >= 0) {
+    if (min < 840) evento = { label: 'Comunicado del Fed', art: '15:00', ms: faltan(840) };
+    else if (min < 870) evento = { label: 'Conferencia de prensa', art: '15:30', ms: faltan(870) };
+    else if (min < 900) evento = { label: 'Termina la conferencia', art: '16:00', ms: faltan(900) };
+  }
+  return { prox, evento, ventana: ventanaEvento(now) };
+}
+
+/* Agrupa fills en trades round-trip: de posición plana a posición plana.
+   Maneja adds, reducciones parciales y flips (long -> short en un solo fill). */
+function buildTrades(fills) {
+  const sorted = fills.slice().sort((a, b) => (a.time - b.time) || ((a.tid || 0) - (b.tid || 0)));
+  const byCoin = new Map();
+  for (const f of sorted) {
+    if (!byCoin.has(f.coin)) byCoin.set(f.coin, []);
+    byCoin.get(f.coin).push(f);
+  }
+
+  const trades = [];
+  for (const [coin, list] of byCoin) {
+    const { dex, symbol } = parseCoin(coin);
+    let pos = 0, cur = null;
+
+    const start = (t, dir) => ({
+      coin, dex, symbol, side: dir > 0 ? 'long' : 'short',
+      entryTime: t, exitTime: null,
+      entrySz: 0, entryNotional: 0, exitSz: 0, exitNotional: 0,
+      gross: 0, fees: 0, funding: 0, peakSz: 0, execs: 0, open: true,
+      liquidated: false, liqMarkPx: null, makerEntry: null
+    });
+
+    for (const f of list) {
+      const px = +f.px, sz = +f.sz, fee = +(f.fee || 0);
+      if (!(sz > 0)) continue;
+      const dir = f.side === 'B' ? 1 : -1;
+      let cpLeft = +(f.closedPnl || 0);
+      let left = sz;
+
+      while (left > EPS) {
+        if (!cur) { cur = start(f.time, dir); cur.makerEntry = !f.crossed; }
+        /* el exchange no lo marca en `dir` (dice "Close Long" igual):
+           la liquidación viene en un campo aparte del fill */
+        if (f.liquidation) { cur.liquidated = true; cur.liqMarkPx = +f.liquidation.markPx || null; }
+        const closing = pos !== 0 && sgn(pos) !== dir;
+        const part = closing ? Math.min(left, Math.abs(pos)) : left;
+        const frac = part / sz;
+
+        if (closing) {
+          cur.exitSz += part;
+          cur.exitNotional += part * px;
+          cur.gross += cpLeft;   // el closedPnl del fill corresponde entero al tramo que cierra
+          cpLeft = 0;
+        } else {
+          cur.entrySz += part;
+          cur.entryNotional += part * px;
+          cur.gross += cpLeft;   // normalmente 0 en aperturas
+          cpLeft = 0;
+        }
+        cur.fees += fee * frac;
+        cur.execs += 1;
+
+        pos += dir * part;
+        cur.peakSz = Math.max(cur.peakSz, Math.abs(pos));
+        left -= part;
+
+        if (Math.abs(pos) < EPS) {
+          pos = 0;
+          cur.exitTime = f.time;
+          cur.open = false;
+          trades.push(cur);
+          cur = null;
+        }
+      }
+    }
+    if (cur) trades.push(cur); // posición todavía abierta
+  }
+
+  for (const t of trades) finalize(t);
+  return trades.sort((a, b) => a.entryTime - b.entryTime);
+}
+
+function finalize(t) {
+  t.session = sessionOf(t.entryTime);
+  t.evento = ventanaEvento(t.entryTime);
+  t.id = t.coin + '|' + t.entryTime;   // estable entre recargas: sirve de clave para las notas
+  t.qty = t.entrySz;
+  t.avgEntry = t.entrySz > 0 ? t.entryNotional / t.entrySz : 0;
+  t.avgExit = t.exitSz > 0 ? t.exitNotional / t.exitSz : null;
+  t.notional = t.entryNotional;
+  t.peakNotional = t.peakSz * t.avgEntry;
+  t.net = t.gross - t.fees + t.funding;
+  t.durationMs = t.exitTime ? t.exitTime - t.entryTime : null;
+  t.retPct = t.notional > 0 ? (t.net / t.notional) * 100 : 0;
+  return t;
+}
+
+/* Atribuye cada pago/cobro de funding al trade abierto en ese momento. */
+function attachFunding(trades, fundings) {
+  let matched = 0, unmatched = 0;
+  for (const fd of fundings || []) {
+    const time = fd.time;
+    const d = fd.delta || fd;
+    const coin = d.coin;
+    const usdc = +(d.usdc || 0); // negativo = pagaste funding
+    const t = trades.find(x => x.coin === coin && x.entryTime <= time &&
+      (x.exitTime === null ? true : time <= x.exitTime));
+    if (t) { t.funding += usdc; matched += usdc; } else { unmatched += usdc; }
+  }
+  for (const t of trades) finalize(t);
+  return { matched, unmatched };
+}
+
+/* ===== Estadística ===== */
+function computeStats(all) {
+  const trades = all.filter(t => !t.open);
+  const n = trades.length;
+  const s = {
+    n, nOpen: all.length - n,
+    net: 0, gross: 0, fees: 0, funding: 0,
+    wins: [], losses: [],
+    bySymbol: {}, bySide: { long: { n: 0, net: 0 }, short: { n: 0, net: 0 } },
+    byHour: {}, byDow: {}, byDur: {}, bySession: {},
+    liq: { n: 0, net: 0, trades: [] },
+    equity: [], maxDD: 0, maxLossStreak: 0, maxWinStreak: 0
+  };
+  if (!n) return s;
+
+  const DURB = [
+    ['< 5 min', 5 * 6e4], ['5-30 min', 30 * 6e4], ['30 min - 4 h', 4 * 36e5],
+    ['4-24 h', 24 * 36e5], ['1-7 días', 7 * 864e5], ['> 7 días', Infinity]
+  ];
+
+  let cum = 0, peak = 0, ls = 0, ws = 0;
+  for (const t of trades) {
+    s.net += t.net; s.gross += t.gross; s.fees += t.fees; s.funding += t.funding;
+    (t.net >= 0 ? s.wins : s.losses).push(t);
+
+    const sym = s.bySymbol[t.symbol] || (s.bySymbol[t.symbol] = { n: 0, net: 0, wins: 0, fees: 0 });
+    sym.n++; sym.net += t.net; sym.fees += t.fees; if (t.net >= 0) sym.wins++;
+
+    s.bySide[t.side].n++; s.bySide[t.side].net += t.net;
+
+    const d = new Date(t.entryTime);
+    const h = d.getHours(), dow = d.getDay();
+    (s.byHour[h] || (s.byHour[h] = { n: 0, net: 0 })).n++; s.byHour[h].net += t.net;
+    (s.byDow[dow] || (s.byDow[dow] = { n: 0, net: 0 })).n++; s.byDow[dow].net += t.net;
+
+    const bucket = (DURB.find(b => t.durationMs < b[1]) || DURB[DURB.length - 1])[0];
+    (s.byDur[bucket] || (s.byDur[bucket] = { n: 0, net: 0 })).n++; s.byDur[bucket].net += t.net;
+
+    const se = s.bySession[t.session] || (s.bySession[t.session] = { n: 0, net: 0, wins: 0 });
+    se.n++; se.net += t.net; if (t.net >= 0) se.wins++;
+
+    if (t.liquidated) { s.liq.n++; s.liq.net += t.net; s.liq.trades.push(t); }
+
+    cum += t.net;
+    peak = Math.max(peak, cum);
+    s.maxDD = Math.max(s.maxDD, peak - cum);
+    s.equity.push({ time: t.exitTime, cum });
+
+    if (t.net < 0) { ls++; ws = 0; } else { ws++; ls = 0; }
+    s.maxLossStreak = Math.max(s.maxLossStreak, ls);
+    s.maxWinStreak = Math.max(s.maxWinStreak, ws);
+  }
+
+  const sum = (a, f) => a.reduce((x, y) => x + f(y), 0);
+  s.winRate = s.wins.length / n;
+  s.sumWins = sum(s.wins, t => t.net);
+  s.sumLosses = Math.abs(sum(s.losses, t => t.net));
+  s.avgWin = s.wins.length ? s.sumWins / s.wins.length : 0;
+  s.avgLoss = s.losses.length ? s.sumLosses / s.losses.length : 0;
+  s.payoff = s.avgLoss ? s.avgWin / s.avgLoss : Infinity;
+  s.profitFactor = s.sumLosses ? s.sumWins / s.sumLosses : Infinity;
+  s.expectancy = s.net / n;
+  s.avgDurWin = s.wins.length ? sum(s.wins, t => t.durationMs) / s.wins.length : 0;
+  s.avgDurLoss = s.losses.length ? sum(s.losses, t => t.durationMs) / s.losses.length : 0;
+  s.avgNotional = sum(trades, t => t.notional) / n;
+  s.volume = sum(trades, t => t.entryNotional + t.exitNotional);
+  s.best = trades.reduce((a, b) => (b.net > a.net ? b : a), trades[0]);
+  s.worst = trades.reduce((a, b) => (b.net < a.net ? b : a), trades[0]);
+  s.netExBest = s.net - s.best.net;
+  const top3 = trades.slice().sort((a, b) => b.net - a.net).slice(0, 3);
+  s.netExTop3 = s.net - sum(top3, t => t.net);
+
+  // Trades abiertos dentro de los 30 min posteriores al cierre de una perdedora
+  const byExit = trades.slice().sort((a, b) => a.exitTime - b.exitTime);
+  const revenge = [];
+  for (const t of trades) {
+    const prev = byExit.filter(x => x.exitTime <= t.entryTime).pop();
+    if (prev && prev.net < 0 && t.entryTime - prev.exitTime <= 30 * 6e4) revenge.push(t);
+  }
+  s.revenge = { n: revenge.length, net: sum(revenge, t => t.net) };
+
+  // Tamaño de la apuesta después de ganar vs después de perder
+  const afterLoss = [], afterWin = [];
+  for (let i = 1; i < trades.length; i++) {
+    (trades[i - 1].net < 0 ? afterLoss : afterWin).push(trades[i].notional);
+  }
+  const avg = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  s.sizeAfterLoss = avg(afterLoss);
+  s.sizeAfterWin = avg(afterWin);
+
+  // Concentración diaria: días con muchos trades vs días tranquilos
+  const days = {};
+  for (const t of trades) {
+    const k = new Date(t.entryTime).toISOString().slice(0, 10);
+    (days[k] || (days[k] = { n: 0, net: 0 })).n++; days[k].net += t.net;
+  }
+  s.days = days;
+  const dayArr = Object.values(days);
+  s.medianTradesDay = dayArr.length
+    ? dayArr.map(d => d.n).sort((a, b) => a - b)[Math.floor(dayArr.length / 2)] : 0;
+  const busy = dayArr.filter(d => d.n > s.medianTradesDay);
+  const calm = dayArr.filter(d => d.n <= s.medianTradesDay);
+  s.netBusyDay = busy.length ? sum(busy, d => d.net) / busy.length : 0;
+  s.netCalmDay = calm.length ? sum(calm, d => d.net) / calm.length : 0;
+  s.nDays = dayArr.length;
+    s.adherence = adherence(trades);
+  s.trades = trades;
+  s.mitades = mitades(trades);
+
+  // Entradas que siguen a dos o más pérdidas consecutivas
+  {
+    const sel = [];
+    let racha = 0;
+    for (const t of trades) {
+      if (racha >= 2) sel.push(t);
+      racha = t.net < 0 ? racha + 1 : 0;
+    }
+    const set = new Set(sel), resto = trades.filter(t => !set.has(t));
+    const av = a => (a.length ? a.reduce((x, y) => x + y.net, 0) / a.length : 0);
+    s.trasRacha = { n: sel.length, avg: av(sel), nResto: resto.length, avgResto: av(resto) };
+  }
+    s.comparativas = comparativas(trades, s);
+  s.presupuesto = presupuesto(trades, s);
+
+  return s;
+}
+
+/* Primera mitad contra segunda mitad de la muestra, por fecha.
+   Es el chequeo más barato para saber si lo que ves describe tu método o tu época. */
+function mitades(trades) {
+  if (trades.length < 10) return null;
+  const o = trades.slice().sort((a, b) => (a.exitTime || a.entryTime) - (b.exitTime || b.entryTime));
+  const m = Math.floor(o.length / 2);
+  const r = a => {
+    const L = a.filter(t => t.net < 0);
+    return {
+      n: a.length,
+      exp: a.reduce((x, y) => x + y.net, 0) / a.length,
+      wr: a.filter(t => t.net >= 0).length / a.length,
+      avgLoss: L.length ? Math.abs(L.reduce((x, y) => x + y.net, 0) / L.length) : 0,
+      desde: o[0] ? a[0].entryTime : null, hasta: a[a.length - 1] ? a[a.length - 1].entryTime : null
+    };
+  };
+  return { vieja: r(o.slice(0, m)), nueva: r(o.slice(m)) };
+}
+
+/* Últimas N operaciones contra todo lo anterior: qué estás sosteniendo y qué soltaste. */
+function adherence(trades, N) {
+  N = N || 20;
+  if (trades.length < 8) return null;
+  const rec = trades.slice(-N), base = trades.slice(0, -N);
+  if (base.length < 4) return null;
+  const m = arr => {
+    const L = arr.filter(t => t.net < 0), W = arr.filter(t => t.net >= 0);
+    const avg = (a, f) => (a.length ? a.reduce((x, y) => x + f(y), 0) / a.length : 0);
+    return {
+      n: arr.length,
+      winRate: W.length / arr.length,
+      avgLoss: L.length ? Math.abs(avg(L, t => t.net)) : 0,
+      worstLoss: L.length ? Math.abs(Math.min(...L.map(t => t.net))) : 0,
+      durLoss: avg(L, t => t.durationMs),
+      durWin: avg(W, t => t.durationMs),
+      notional: avg(arr, t => t.notional),
+      liq: arr.filter(t => t.liquidated).length,
+      expectancy: avg(arr, t => t.net)
+    };
+  };
+  return { rec: m(rec), base: m(base) };
+}
+
+/* ===== Posiciones abiertas en vivo =====
+   Cruza lo que tenés abierto contra las órdenes trigger vigentes. La pregunta que responde
+   es una sola: ¿tu stop entra antes que el del exchange? */
+function analyzePositions(positions, orders, s) {
+  const out = [];
+  for (const p of positions || []) {
+    const P = p.position || p;
+    const szi = +P.szi;
+    if (!szi) continue;
+    const sz = Math.abs(szi), long = szi > 0;
+    const notional = Math.abs(+(P.positionValue || 0));
+    const mark = notional && sz ? notional / sz : +(P.entryPx || 0);
+    const entry = +(P.entryPx || 0);
+    const liqPx = +(P.liquidationPx || 0) || null;
+    const lev = P.leverage ? +P.leverage.value : (notional && +P.marginUsed ? notional / +P.marginUsed : null);
+
+    // órdenes trigger de este coin que reducen la posición
+    const trig = (orders || []).filter(o => o.coin === P.coin &&
+      (o.isTrigger || o.triggerPx) && (o.reduceOnly !== false));
+    const px = o => +(o.triggerPx || o.limitPx || 0);
+    // para un long, el stop está por debajo del mark; el take profit por encima
+    const stops = trig.filter(o => long ? px(o) < mark : px(o) > mark).sort((a, b) => long ? px(b) - px(a) : px(a) - px(b));
+    const tps = trig.filter(o => long ? px(o) > mark : px(o) < mark).sort((a, b) => long ? px(a) - px(b) : px(b) - px(a));
+    const stopPx = stops.length ? px(stops[0]) : null;
+    const tpPx = tps.length ? px(tps[0]) : null;
+
+    const pctFrom = t => t ? Math.abs(mark - t) / mark * 100 : null;
+    const r = {
+      coin: P.coin, symbol: parseCoin(P.coin).symbol, dex: parseCoin(P.coin).dex,
+      side: long ? 'long' : 'short', sz, notional, entry, mark, liqPx, lev,
+      uPnl: +(P.unrealizedPnl || 0), margin: +(P.marginUsed || 0),
+      stopPx, tpPx, distLiq: pctFrom(liqPx), distStop: pctFrom(stopPx), distTp: pctFrom(tpPx),
+      // lo que efectivamente vas a anotar si salta el stop, medido contra la entrada
+      pnlAtStop: stopPx ? (stopPx - entry) * szi : null,
+      // lo que perdés desde acá (incluye la ganancia no realizada que estás devolviendo)
+      riesgo: stopPx ? Math.abs(mark - stopPx) * sz : null,
+      alerts: []
+    };
+    const A = (level, text) => r.alerts.push({ level, text });
+
+    if (!stopPx) {
+      A('bad', `Sin stop cargado. La única salida definida es la liquidación` +
+        (r.distLiq ? `, a ${r.distLiq.toFixed(2)}% del mark` : '') +
+        `. Tus dos peores operaciones históricas terminaron exactamente así.`);
+    } else if (r.distLiq && r.distStop >= r.distLiq) {
+      A('bad', `Tu stop (${r.distStop.toFixed(2)}%) está más lejos que la liquidación (${r.distLiq.toFixed(2)}%). ` +
+        `Nunca se va a ejecutar: te liquidan primero.`);
+    } else if (r.distLiq && r.distStop > r.distLiq * 0.6) {
+      A('warn', `Stop a ${r.distStop.toFixed(2)}% y liquidación a ${r.distLiq.toFixed(2)}%: poco margen. ` +
+        `Un gap o el slippage de un mercado fino se comen la diferencia.`);
+    } else {
+      A('good', `Stop a ${r.distStop.toFixed(2)}%, liquidación a ${r.distLiq ? r.distLiq.toFixed(2) + '%' : 's/d'}. ` +
+        `Salís vos, no el exchange.`);
+    }
+    if (r.pnlAtStop != null && s && s.adherence) {
+      const ref = s.adherence.rec.avgLoss, p = r.pnlAtStop;
+      if (p >= 0) {
+        A('good', `El stop ya está en ganancia: si salta anotás ${p > 0 ? '+' : ''}US$${p.toFixed(2)}. ` +
+          `Esta operación no puede costarte plata.`);
+      } else if (ref > 0 && Math.abs(p) > ref * 1.5) {
+        A('warn', `Si salta el stop anotás -US$${Math.abs(p).toFixed(2)}: ${(Math.abs(p) / ref).toFixed(1)}x tu ` +
+          `pérdida promedio reciente (US$${ref.toFixed(2)}).`);
+      } else if (ref > 0) {
+        A('good', `Si salta el stop anotás -US$${Math.abs(p).toFixed(2)}, dentro de tu banda habitual (US$${ref.toFixed(2)}).`);
+      }
+    }
+    if (!tpPx) A('info', `Sin objetivo cargado: el ratio objetivo/stop de esta operación queda sin definir.`);
+    else if (r.distStop) {
+      const rr = r.distTp / r.distStop;
+      A(rr >= 2 ? 'good' : 'warn', `Ratio objetivo/stop: ${rr.toFixed(1)}:1.` +
+        (rr < 2 ? ` Debajo de 2:1 necesitás más de 50% de acierto para empatar.` : ''));
+    }
+    const ses = sessionOf(Date.now());
+    if ((ses === 'pre' || ses === 'after' || ses === 'finde') && lev && lev >= 10) {
+      A('warn', `${lev}x con el subyacente fuera de rueda (${SESSIONS[ses].label}), ` +
+        `donde el libro es más fino y las bandas de descubrimiento más anchas.`);
+    }
+    const order = { bad: 0, warn: 1, good: 2, info: 3 };
+    r.alerts.sort((a, b) => order[a.level] - order[b.level]);
+    out.push(r);
+  }
+  return out;
+}
+
+/* Comparativas descriptivas: qué rindió cada contexto contra el resto de tus operaciones.
+   Sin recomendaciones — solo el promedio por operación de cada grupo y el de su complemento. */
+function comparativas(trades, s) {
+  const out = [];
+  const av = a => (a.length ? a.reduce((x, y) => x + y.net, 0) / a.length : 0);
+  /* Partimos la muestra al medio por fecha. Si una diferencia solo aparece en una mitad,
+     probablemente esté describiendo una época tuya y no el contexto. */
+  const orden = trades.slice().sort((a, b) => (a.exitTime || a.entryTime) - (b.exitTime || b.entryTime));
+  const vieja = new Set(orden.slice(0, Math.floor(orden.length / 2)).map(t => t.id));
+  const push = (label, sel) => {
+    if (sel.length < 3 || sel.length === trades.length) return;
+    const set = new Set(sel), resto = trades.filter(t => !set.has(t));
+    if (!resto.length) return;
+    const difMitad = esVieja => {
+      const g = sel.filter(t => vieja.has(t.id) === esVieja);
+      const r = resto.filter(t => vieja.has(t.id) === esVieja);
+      return (g.length >= 3 && r.length >= 3) ? av(g) - av(r) : null;
+    };
+    const difA = difMitad(true), difB = difMitad(false);
+    out.push({ label, n: sel.length, avg: av(sel), nResto: resto.length, avgResto: av(resto),
+      difA, difB, estable: difA != null && difB != null && Math.sign(difA) === Math.sign(difB) });
+  };
+
+  const byExit = trades.filter(t => t.exitTime).slice().sort((a, b) => a.exitTime - b.exitTime);
+  push('Abiertas dentro de los 30 min de cerrar una pérdida', trades.filter(t => {
+    const prev = byExit.filter(x => x.exitTime <= t.entryTime).pop();
+    return prev && prev.net < 0 && t.entryTime - prev.exitTime <= 30 * 6e4;
+  }));
+
+  const sel = []; let racha = 0;
+  for (const t of trades) { if (racha >= 2) sel.push(t); racha = t.net < 0 ? racha + 1 : 0; }
+  push('Abiertas después de 2 o más pérdidas seguidas', sel);
+
+  const nProm = trades.reduce((a, t) => a + t.notional, 0) / trades.length;
+  push('Con notional mayor a tu promedio', trades.filter(t => t.notional > nProm));
+
+  for (const [k, v] of Object.entries(s.bySession)) {
+    if (v.n >= 3) push('En ' + SESSIONS[k].label, trades.filter(t => t.session === k));
+  }
+      const evs = [...new Set(trades.map(t => t.evento && t.evento.id).filter(Boolean))];
+  for (const k of evs) {
+    const lab = (trades.find(t => t.evento && t.evento.id === k).evento).label;
+    push(lab, trades.filter(t => t.evento && t.evento.id === k));
+  }
+
+  const tesis = [...new Set(trades.map(t => t.tesis).filter(Boolean))];
+  for (const k of tesis) push('Tesis: ' + k, trades.filter(t => t.tesis === k));
+  const tags = [...new Set(trades.flatMap(t => t.tags || []))];
+  for (const k of tags) push('Etiqueta: ' + k, trades.filter(t => (t.tags || []).includes(k)));
+
+  push('Long', trades.filter(t => t.side === 'long'));
+  push('Short', trades.filter(t => t.side === 'short'));
+    push('Entradas esperando tu precio', trades.filter(t => t.makerEntry === true));
+  push('Cerradas en menos de 5 minutos', trades.filter(t => t.durationMs < 5 * 6e4));
+  push('Sostenidas más de 30 minutos', trades.filter(t => t.durationMs > 30 * 6e4));
+
+  return out.sort((a, b) => (a.avg - a.avgResto) - (b.avg - b.avgResto));
+}
+
+/* ===== Hábitos =====
+   Todo lo que se mide acá es una acción que dependió de vos, no un resultado.
+   Las rachas y los hitos son sobre lo que hiciste; el PnL no entra nunca. */
+function habitos(all, s) {
+  const T = (all || []).filter(t => !t.open);
+  if (T.length < 3) return [];
+  const ref = (s.adherence ? s.adherence.rec.avgLoss : s.avgLoss) || 0;
+  const rec = T.slice(-20);
+  const med = a => { const b = a.slice().sort((x, y) => x - y); return b.length ? b[Math.floor(b.length / 2)] : 0; };
+  const medNot = med(T.map(t => t.notional));
+
+  const test = {
+    perdida: t => t.net >= 0 || (ref > 0 && Math.abs(t.net) <= ref * 1.5),
+    corte:   t => t.net >= 0 || (t.durationMs != null && t.durationMs <= 30 * 6e4),
+    intacto: t => !t.liquidated,
+        // consistencia en las dos direcciones: ni el doble ni la mitad de lo tuyo
+    tamano:  t => medNot > 0 && t.notional <= medNot * 2 && t.notional >= medNot * 0.5,
+    limite:  t => t.makerEntry === true
+  };
+  const def = [
+    ['perdida', 'Pérdida contenida',  'cerrar la perdedora dentro de tu banda'],
+    ['corte',   'Corte rápido',       'no sostener una perdedora más de 30 minutos'],
+    ['intacto', 'Sin liquidaciones',  'cerrar vos, no el exchange'],
+        ['tamano',  'Tamaño consistente', 'entrar con un tamaño parecido al de siempre'],
+    ['limite',  'Esperar tu precio',  'dejar la orden esperando en vez de ir a mercado']
+  ];
+  const metas = [3, 5, 10, 20, 50, 100, 250];
+  const ult = T[T.length - 1];
+
+  return def.map(([id, nombre, accion]) => {
+    const ok = test[id];
+    let racha = 0;
+    for (let i = T.length - 1; i >= 0 && ok(T[i]); i--) racha++;
+    let mejor = 0, c = 0;
+    for (const t of T) { c = ok(t) ? c + 1 : 0; mejor = Math.max(mejor, c); }
+    let rompio = 0;
+    if (!ok(ult)) { for (let i = T.length - 2; i >= 0 && ok(T[i]); i--) rompio++; }
+        return {
+      id, nombre, accion, racha, mejor, rompio, cumple: ok(ult), ult,
+      pct: rec.filter(ok).length / rec.length,
+      serie: rec.map(t => ({ ok: ok(t), t })),   // últimas 20, en orden
+      meta: metas.find(m => m > racha) || null,
+      medNot, ref
+    };
+  });
+}
+
+/* ===== La voz de Taladro =====
+   Reglas: no habla sin un número, habla poco, festeja antes de marcar, y después de una
+   racha perdedora baja el tono. La ironía va en cómo está dicha la frase, nunca colgada
+   atrás como remate: una sola oración, sin comentario agregado. */
+function taladro(s, pos, td, hab, vistos) {
+  const usd = x => (x < 0 ? '-' : '') + 'US$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  const dur = ms => !ms ? '—' : ms < 36e5 ? Math.round(ms / 6e4) + ' minutos' : (ms / 36e5).toFixed(1) + ' horas';
+    const d = (tono, linea, id, mins) => ({ habla: true, tono, linea, id, silencio: (mins || 360) * 6e4 });
+  const callado = linea => ({ habla: false, tono: 'silencio', linea: linea || '', id: null });
+  pos = pos || []; td = td || { hoy: [], net: 0 }; vistos = vistos || {};
+  hab = hab || habitos(s.trades || [], s);
+
+  let racha = 0;
+  if (s.trades) for (let i = s.trades.length - 1; i >= 0 && s.trades[i].net < 0; i--) racha++;
+
+  /* 1. Riesgo abierto ahora. Es lo único que interrumpe siempre. */
+  const sinStop = pos.find(p => !p.stopPx);
+  if (sinStop) return d('alerta', `Estás sin stop, tu plan de salida es que decida el exchange ` +
+    `a ${sinStop.distLiq ? sinStop.distLiq.toFixed(1) + '%' : 'una distancia sin dato'} de acá.`,
+    'sinstop:' + sinStop.coin, 20);
+  const invertido = pos.find(p => p.distLiq && p.distStop >= p.distLiq);
+  if (invertido) return d('alerta', `Tu stop está a ${invertido.distStop.toFixed(1)}% y la liquidación a ` +
+    `${invertido.distLiq.toFixed(1)}%, así que el que manda es el del exchange.`,
+    'stopinv:' + invertido.coin, 20);
+
+  /* 2. Hitos antes que retos: si hay algo para reconocer, gana. */
+  const hito = hab.filter(h => h.racha >= 3 && [3, 5, 10, 20, 50, 100, 250].includes(h.racha)
+      && h.racha > (vistos[h.id] || 0)).sort((a, b) => b.racha - a.racha)[0];
+  if (hito) {
+        const f = {
+      perdida: `${hito.racha} seguidas cerrando la pérdida donde dijiste que la ibas a cerrar.`,
+      corte:   `${hito.racha} perdedoras cortadas antes de la media hora, al hilo.`,
+      tamano:  `${hito.racha} entradas seguidas con el tamaño de siempre.`,
+            limite:  `${hito.racha} entradas seguidas esperando tu precio.`,
+      intacto: `${hito.racha} operaciones sin que el exchange cierre por vos.`
+    };
+        const r = d('ok', f[hito.id], 'hito:' + hito.id + ':' + hito.racha);
+    r.hito = { id: hito.id, racha: hito.racha };
+    return r;
+  }
+
+  /* 3. Racha perdedora: seco, sin ironía, y sin pedirte nada. */
+    if (racha >= 3) return dRacha(racha, s, d);
+
+  function dRacha(racha, s, d) { return d('seco', `${racha} pérdidas seguidas contra un récord de ${s.maxLossStreak}` +
+    (s.trasRacha && s.trasRacha.n >= 5
+      ? `, y lo que abriste después de una racha rindió ${usd(s.trasRacha.avg)} por operación contra ${usd(s.trasRacha.avgResto)} del resto.`
+            : '.'), 'racha'); }
+
+  /* 4. Hábito roto, solo si venía de una racha que valía. Se dice una vez y se sigue. */
+  const roto = hab.filter(h => h.rompio >= 5).sort((a, b) => b.rompio - a.rompio)[0];
+  if (roto) {
+    const t = roto.ult;
+        const f = {
+      perdida: `Venías ${roto.rompio} cerrando dentro de tu banda y esta se fue a ${usd(t.net)}, ` +
+        `contra ${usd(-roto.ref)} de referencia.`,
+      corte:   `${roto.rompio} perdedoras cortadas a tiempo y a esta la tuviste ${dur(t.durationMs)}.`,
+      tamano:  `Tu tamaño de siempre es ${usd(roto.medNot)} y esta la abriste en ${usd(t.notional)}.`,
+            limite:  `${roto.rompio} entradas esperando tu precio y a esta la fuiste a buscar a mercado.`,
+      intacto: `Cerró el exchange por vos y ahí se cortó una racha de ${roto.rompio}.`
+    };
+        return d('seco', f[roto.id], 'roto:' + roto.id + ':' + roto.rompio);
+  }
+
+    /* 5. La fuga silenciosa: venir usando menos presupuesto del que tu propia regla habilita. */
+  const pr = s.presupuesto;
+  if (pr && pr.estado === 'corto' && !pos.length) {
+        return d('ok', `Tu regla te habilita ${usd(pr.habilitado)} de notional y venís entrando con ${usd(pr.usado)}.`, 'presupuesto');
+  }
+
+    /* 6. Silencio, que es el estado normal. El conteo del día vive acá: es contexto,
+     no algo por lo que valga la pena interrumpirte. */
+  if (td.hoy.length >= 5 && s.medianTradesDay && td.hoy.length > s.medianTradesDay * 2.5)
+    return callado(`${td.hoy.length} operaciones hoy, contra una mediana de ${s.medianTradesDay}.`);
+  const mejor = hab.filter(h => h.racha > 0).sort((a, b) => b.racha - a.racha)[0];
+    if (mejor) return callado(`${mejor.nombre}: ${mejor.racha} al hilo` + (mejor.meta ? `, próximo hito ${mejor.meta}.` : '.'));
+  if (pos.length) return callado(`${pos[0].symbol} ${pos[0].side} abierta.`);
+    return callado(s.n ? `${s.n} operaciones registradas.` : 'Todavía no hay nada para mirar.');
+}
+
+/* ===== Repertorio =====
+   Cada vez que le tocás, Taladro dice otra cosa. Tres familias: algo para probar,
+   algo que no estás mirando, y algo del proceso. Todo sale de tus propios datos. */
+function repertorio(s, pos, td, hab) {
+  const usd = x => (x < 0 ? '-' : '') + 'US$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  const pc = x => (x * 100).toFixed(0) + '%';
+  const out = [];
+  const add = (tipo, linea) => out.push({ tipo, linea });
+  hab = hab || habitos(s.trades || [], s);
+  const T = s.trades || [];
+  if (!T.length) return [{ tipo: 'info', linea: 'Todavía no hay operaciones para mirar.' }];
+  const H = id => hab.find(h => h.id === id);
+
+  /* --- para probar --- */
+  const conNota = T.filter(t => t.tesis).length;
+  if (conNota < 10) add('probar', `Tenés ${conNota} operaciones con la tesis anotada; con diez la tabla ` +
+    `te dice si te rinde más seguir tendencia o buscar reversión.`);
+  const lim = H('limite');
+  if (lim && lim.pct < 0.5) add('probar', `Solo el ${pc(lim.pct)} de tus últimas entradas esperó tu precio, ` +
+    `y con cinco seguidas alcanzás el primer hito.`);
+  if (s.presupuesto && s.presupuesto.stopTipico) {
+    const st = s.presupuesto.stopTipico;
+    add('probar', `Con tu stop típico de ${st.toFixed(2)}%, un objetivo al doble queda a ${(st * 2).toFixed(2)}%.`);
+  }
+  if (s.presupuesto && s.presupuesto.estado === 'corto')
+    add('probar', `Tu regla habilita ${usd(s.presupuesto.habilitado)} de notional y venís entrando con ${usd(s.presupuesto.usado)}.`);
+  const symS = Object.entries(s.bySymbol).sort((a, b) => b[1].n - a[1].n);
+  if (symS.length > 1 && symS[0][1].n / s.n > 0.5)
+    add('probar', `${symS[0][1].n} de tus ${s.n} operaciones son ${symS[0][0]}, y los otros ${symS.length - 1} símbolos suman ${s.n - symS[0][1].n}.`);
+  const vHoy = ventanaEvento(Date.now());
+  if (vHoy && !T.some(t => t.evento && t.evento.id === vHoy.id))
+    add('probar', `No tenés ninguna operación etiquetada en “${vHoy.label}”, y estás justo en esa ventana.`);
+
+  /* --- lo que no estás mirando --- */
+  const durs = Object.entries(s.byDur).filter(([, v]) => v.n >= 3);
+  if (durs.length >= 2) {
+    const b = durs.reduce((a, c) => (c[1].net / c[1].n > a[1].net / a[1].n ? c : a));
+    const w = durs.reduce((a, c) => (c[1].net / c[1].n < a[1].net / a[1].n ? c : a));
+    add('mirar', `Tu mejor tramo de duración es ${b[0]} con ${usd(b[1].net / b[1].n)} por operación, ` +
+      `contra ${usd(w[1].net / w[1].n)} de ${w[0]}.`);
+  }
+  const est = (s.comparativas || []).filter(c => c.estable);
+  if (est.length) add('mirar', `De ${s.comparativas.length} contextos medidos, ${est.length} se sostienen ` +
+    `en las dos mitades de tu historial y el más marcado es “${est[0].label}”.`);
+  if (s.volume > 0) add('mirar', `Pagaste ${usd(s.fees)} de fees sobre ${usd(s.volume)} de volumen, ` +
+    `que son ${(s.fees / s.volume * 10000).toFixed(2)} puntos básicos.`);
+  const r = rachasEsperadas(s, 100);
+  if (r) add('mirar', `Tu peor racha fue de ${r.real} y la racha larga típica con tu acierto es de ${r.tipica}.`);
+  if (s.liq.n) add('mirar', `Sin tus ${s.liq.n} liquidaciones tu neto sería ${usd(s.net - s.liq.net)} en vez de ${usd(s.net)}.`);
+  const ses = Object.entries(s.bySession).filter(([, v]) => v.n >= 3).sort((a, b) => b[1].net / b[1].n - a[1].net / a[1].n);
+  if (ses.length >= 2) add('mirar', `${SESSIONS[ses[0][0]].label} te promedia ${usd(ses[0][1].net / ses[0][1].n)} por operación ` +
+    `y ${SESSIONS[ses[ses.length - 1][0]].label} ${usd(ses[ses.length - 1][1].net / ses[ses.length - 1][1].n)}.`);
+  const mk = T.filter(t => t.makerEntry === true).length;
+  add('mirar', `${T.length - mk} de tus ${T.length} entradas fueron a mercado y ${mk} esperaron tu precio.`);
+
+  /* --- proceso --- */
+  if (s.adherence) add('proceso', `Tu pérdida promedio de las últimas ${s.adherence.rec.n} es ` +
+    `${usd(s.adherence.rec.avgLoss)} y la peor de esa serie fue ${usd(s.adherence.rec.worstLoss)}.`);
+  const mejorH = hab.filter(h => h.racha > 0).sort((a, b) => b.racha - a.racha)[0];
+  if (mejorH) add('proceso', `${mejorH.nombre} lleva ${mejorH.racha} al hilo con un récord de ${mejorH.mejor}.`);
+  const peorH = hab.slice().sort((a, b) => a.pct - b.pct)[0];
+  if (peorH) add('proceso', `${peorH.nombre} está en ${pc(peorH.pct)} de las últimas 20, ` +
+    `y es el hábito con más margen que tenés.`);
+
+  return out;
+}
+
+/* ===== Lo que dice al pasar por encima =====
+   La fila ya muestra los números; acá va la regla, que es lo que no se ve. */
+function explica(tipo, dato, s) {
+  const usd = x => (x < 0 ? '-' : '') + 'US$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  if (tipo === 'habito') {
+    const h = dato;
+    const reglas = {
+      perdida: `Suma cuando la pérdida no supera ${usd(h.ref * 1.5)}, que es una vez y media tu banda.`,
+      corte:   `Suma cuando la perdedora se cierra antes de los 30 minutos.`,
+      intacto: `Suma cuando la posición la cerraste vos y no el exchange.`,
+      tamano:  `Suma cuando el notional queda entre ${usd(h.medNot * 0.5)} y ${usd(h.medNot * 2)}, ` +
+               `alrededor de tu mediana de ${usd(h.medNot)}.`,
+      limite:  `Suma cuando la entrada la tomó el mercado en tu precio, sin cruzar el spread.`
+    };
+    return reglas[h.id] || h.accion;
+  }
+  if (tipo === 'racha') {
+    const r = dato;
+    return `Una racha de ${r.k} o más aparece en el ${(r.p * 100).toFixed(0)}% de las series de 100 operaciones ` +
+      `con tu acierto de ${(s.winRate * 100).toFixed(1)}%.`;
+  }
+  if (tipo === 'presupuesto') {
+    const p = dato;
+    return `Tu banda de ${usd(p.banda)} con un stop de ${p.stopTipico.toFixed(2)}% habilita ${usd(p.habilitado)} de notional.`;
+  }
+  if (tipo === 'posicion') {
+    const r = dato;
+    return r.stopPx
+      ? `Tu stop está a ${r.distStop.toFixed(2)}% y la liquidación a ${r.distLiq ? r.distLiq.toFixed(2) + '%' : 's/d'}.`
+      : `No hay stop cargado en esta posición.`;
+  }
+  return '';
+}
+
+/* ===== Presupuesto de riesgo =====
+   Mide la fuga que ningún journal ve: entrar con menos de lo que tu propia regla te habilita.
+   Pasarse se paga en la cuenta; quedarse corto se paga en repeticiones que no hiciste. */
+function presupuesto(all, s) {
+  const T = (all || []).filter(t => !t.open);
+  if (T.length < 8) return null;
+  const banda = (s.adherence ? s.adherence.rec.avgLoss : s.avgLoss) || 0;
+  const perd = T.filter(t => t.net < 0 && t.notional > 0).map(t => Math.abs(t.retPct));
+  if (!banda || perd.length < 4) return null;
+  const med = a => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+  const stopTipico = med(perd);                       // cuánto se te suele mover en contra antes de salir
+  if (!(stopTipico > 0)) return null;
+  const habilitado = banda / (stopTipico / 100);      // notional que ese riesgo permite
+  const rec = T.slice(-10);
+  const usado = med(rec.map(t => t.notional));
+  const uso = habilitado > 0 ? usado / habilitado : null;
+  const estado = uso == null ? null : uso < 0.6 ? 'corto' : uso > 1.5 ? 'pasado' : 'en banda';
+  return { banda, stopTipico, habilitado, usado, uso, estado, n: rec.length };
+}
+
+/* ===== Qué tan normal es una mala racha =====
+   Probabilidad exacta de que aparezca al menos una racha de k pérdidas en n operaciones,
+   dado tu propio win rate. Sirve para separar "me está yendo mal" de "esto tenía que pasar". */
+function probRacha(n, q, k) {
+  if (!(n > 0) || !(q > 0) || !(k > 0)) return 0;
+  let dp = new Array(k).fill(0); dp[0] = 1;
+  for (let i = 0; i < n; i++) {
+    const nd = new Array(k).fill(0);
+    for (let j = 0; j < k; j++) {
+      if (!dp[j]) continue;
+      nd[0] += dp[j] * (1 - q);
+      if (j + 1 < k) nd[j + 1] += dp[j] * q;
+    }
+    dp = nd;
+  }
+  return 1 - dp.reduce((a, b) => a + b, 0);
+}
+
+/* Tabla de rachas esperadas con tus números, más la racha larga típica en n operaciones. */
+function rachasEsperadas(s, n) {
+  if (!s.n) return null;
+  n = n || 100;
+  const q = 1 - s.winRate;
+  const filas = [3, 5, 8, 11].map(k => ({ k, p: probRacha(n, q, k) }));
+  let tipica = 1;
+  for (let k = 1; k <= 30; k++) if (probRacha(n, q, k) >= 0.5) tipica = k;
+  return { n, q, filas, tipica, winRate: s.winRate, real: s.maxLossStreak };
+}
+
+/* Serie de valor de cuenta que devuelve el endpoint `portfolio`.
+   A diferencia del PnL acumulado, incluye depósitos y retiros: es lo que realmente tuviste. */
+function serieCuenta(portfolio) {
+  if (!portfolio) return [];
+  const listas = [];
+  const recorrer = p => {
+    if (!p) return;
+    if (Array.isArray(p)) {
+      for (const e of p) {
+        if (Array.isArray(e) && e.length === 2 && e[1] && Array.isArray(e[1].accountValueHistory)) {
+          listas.push({ clave: String(e[0]), h: e[1].accountValueHistory });
+        } else recorrer(e);
+      }
+    } else if (typeof p === 'object') Object.values(p).forEach(recorrer);
+  };
+  recorrer(portfolio);
+  if (!listas.length) return [];
+  const pref = listas.find(x => /allTime/i.test(x.clave)) ||
+    listas.sort((a, b) => b.h.length - a.h.length)[0];
+  return pref.h.map(x => ({ time: +x[0], v: +x[1] })).filter(x => isFinite(x.time) && isFinite(x.v));
+}
+
+/* Operaciones de hoy agrupadas por sesión. */
+function todayBySession(trades, now) {
+  now = now || Date.now();
+  const key = new Date(now).toDateString();
+  const hoy = trades.filter(t => !t.open && new Date(t.entryTime).toDateString() === key);
+  const by = {};
+  for (const t of hoy) {
+    const b = by[t.session] || (by[t.session] = { n: 0, net: 0, wins: 0 });
+    b.n++; b.net += t.net; if (t.net >= 0) b.wins++;
+  }
+  return { hoy, by, net: hoy.reduce((a, t) => a + t.net, 0) };
+}
+
+/* ===== Preparación del día: alertas de contexto sobre las operaciones recientes ===== */
+function buildDayPlan(s, now) {
+  now = now || Date.now();
+  const out = { session: sessionOf(now), sessions: SESSIONS, alerts: [], rules: [] };
+  if (!s.n) return out;
+  const usd = x => (x < 0 ? '-' : '') + 'US$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  const A = (level, title, text) => out.alerts.push({ level, title, text });
+  const T = s.trades, last = T[T.length - 1];
+
+  // Sesión actual y tu historial en ella
+  const cur = s.bySession[out.session];
+  const lab = SESSIONS[out.session].label;
+  if (out.session === 'finde') {
+    A('bad', 'Mercado cerrado', `El subyacente no opera entre viernes 21:00 y domingo 21:00 de Buenos Aires. Cualquier precio acá es descubrimiento del perp, sin referencia.`);
+  } else if (!cur || cur.n < 3) {
+    A('info', `Estás en ${lab}`, `Casi no tenés historia en esta franja: ${cur ? cur.n : 0} operaciones.`);
+  } else if (cur.net < 0) {
+    A('warn', `${lab} es una franja que te cuesta plata`,
+      `${cur.n} operaciones, ${usd(cur.net)}, ${((cur.wins / cur.n) * 100).toFixed(0)}% de acierto, ` +
+      `${usd(cur.net / cur.n)} por operación contra ${usd(s.expectancy)} de tu promedio general.`);
+  } else {
+    A('good', `${lab} es tu mejor franja`,
+      `${cur.n} operaciones, ${usd(cur.net)}, ${((cur.wins / cur.n) * 100).toFixed(0)}% de acierto.`);
+  }
+
+  // Racha reciente
+  let streak = 0;
+  for (let i = T.length - 1; i >= 0 && T[i].net < 0; i--) streak++;
+  if (streak >= 2) {
+    A('bad', `Venís de ${streak} pérdidas seguidas`,
+      `Tu racha peor histórica fue de ${s.maxLossStreak}.` +
+      (s.trasRacha && s.trasRacha.n >= 3
+        ? ` Tus entradas después de dos o más pérdidas seguidas rindieron ${usd(s.trasRacha.avg)} por operación ` +
+          `contra ${usd(s.trasRacha.avgResto)} del resto, sobre ${s.trasRacha.n} casos.`
+        : ` Todavía no hay casos suficientes para medir qué rinden tus entradas después de una racha.`));
+  }
+
+  // Escalada de tamaño
+  if (s.sizeAfterWin > 0 && s.sizeAfterLoss / s.sizeAfterWin > 1.25) {
+    A('warn', 'Histórico: agrandás después de perder',
+      `Notional promedio tras pérdida ${usd(s.sizeAfterLoss)} contra ${usd(s.sizeAfterWin)} tras ganancia: ` +
+      `${(s.sizeAfterLoss / s.sizeAfterWin).toFixed(1)}x.`);
+  }
+
+  // Liquidaciones
+  if (s.liq.n) {
+    A('bad', `${s.liq.n} ${s.liq.n > 1 ? 'liquidaciones' : 'liquidación'} en tu historial`,
+      `Costaron ${usd(s.liq.net)}. Neto sin ellas: ${usd(s.net - s.liq.net)}. ` +
+      `En todas, la distancia al stop era mayor que la distancia a la liquidación.`);
+  }
+
+  // Deriva de técnica
+  const ad = s.adherence;
+  if (ad) {
+    const r = ad.rec, b = ad.base;
+    if (b.avgLoss > 0 && r.avgLoss / b.avgLoss < 0.7) {
+      A('good', 'Estás sosteniendo el stop corto',
+        `Pérdida promedio de las últimas ${r.n}: ${usd(r.avgLoss)} contra ${usd(b.avgLoss)} antes. ` +
+        `En el mismo período la expectativa pasó de ${usd(b.expectancy)} a ${usd(r.expectancy)} por operación.`);
+    } else if (b.avgLoss > 0 && r.avgLoss / b.avgLoss > 1.3) {
+      A('bad', 'Se te está agrandando la pérdida promedio',
+        `Últimas ${r.n}: ${usd(r.avgLoss)} contra ${usd(b.avgLoss)} antes. El stop se está corriendo.`);
+    }
+    if (r.durLoss > 0 && r.durWin > 0 && r.durLoss / r.durWin > 1.3) {
+      A('warn', 'Volviste a aguantar las perdedoras',
+        `En las últimas ${r.n} tus perdedoras duran ${(r.durLoss / r.durWin).toFixed(1)}x más que las ganadoras.`);
+    }
+    if (b.notional > 0 && r.notional / b.notional > 1.4) {
+      A('warn', 'Subiste el tamaño',
+        `Notional promedio ${usd(r.notional)} contra ${usd(b.notional)} antes: +${(((r.notional / b.notional) - 1) * 100).toFixed(0)}%. ` +
+        `Tu pérdida promedio actual es ${usd(r.avgLoss)} y escala en la misma proporción.`);
+    }
+  }
+
+  // Sobreoperación del día en curso
+  const hoy = T.filter(t => new Date(t.entryTime).toDateString() === new Date(now).toDateString());
+  if (hoy.length) {
+    const neto = hoy.reduce((a, t) => a + t.net, 0);
+    A(hoy.length > s.medianTradesDay * 2 ? 'warn' : 'info', `Hoy llevás ${hoy.length} ${hoy.length === 1 ? 'operación' : 'operaciones'}`,
+      `${usd(neto)} en el día. Tu mediana diaria es ${s.medianTradesDay}.` +
+      (s.netBusyDay < s.netCalmDay
+        ? ` Tus días de mucha actividad promedian ${usd(s.netBusyDay)} contra ${usd(s.netCalmDay)} de los tranquilos.` : ''));
+  }
+
+  // Última operación fuera de rango
+  if (last && last.net < 0 && s.avgLoss > 0 && Math.abs(last.net) > s.avgLoss * 2) {
+    A('warn', 'Tu última pérdida fue el doble de lo normal',
+      `${usd(last.net)} en ${last.symbol} contra una pérdida promedio de ${usd(s.avgLoss)}: ` +
+      `${(Math.abs(last.net) / s.avgLoss).toFixed(1)}x.`);
+  }
+
+  // Reglas derivadas de sus propios datos
+  const syms = Object.entries(s.bySymbol).sort((a, b) => b[1].net - a[1].net);
+  const sess = Object.entries(s.bySession).filter(([, v]) => v.n >= 3).sort((a, b) => b[1].net - a[1].net);
+  if (syms.length) out.rules.push(`Instrumento: ${syms[0][0]} suma ${usd(syms[0][1].net)} en ${syms[0][1].n} operaciones.` +
+    (syms.length > 1 && syms[syms.length - 1][1].net < 0 ? ` ${syms[syms.length - 1][0]} resta ${usd(syms[syms.length - 1][1].net)}.` : ''));
+  if (sess.length) out.rules.push(`Franja: mejor en ${SESSIONS[sess[0][0]].label} (${SESSIONS[sess[0][0]].art}), ${usd(sess[0][1].net)}.` +
+    (sess[sess.length - 1][1].net < 0 ? ` Peor en ${SESSIONS[sess[sess.length - 1][0]].label}, ${usd(sess[sess.length - 1][1].net)}.` : ''));
+  const L = s.bySide.long, S2 = s.bySide.short;
+  if (L.n >= 3 && S2.n >= 3) out.rules.push(`Lado: longs ${usd(L.net)} en ${L.n}, shorts ${usd(S2.net)} en ${S2.n}.`);
+  out.rules.push(`Pérdida: tu promedio reciente es ${usd(ad ? ad.rec.avgLoss : s.avgLoss)}; la peor de esa serie, ${usd(ad ? ad.rec.worstLoss : 0)}.`);
+  const durs = Object.entries(s.byDur).filter(([, v]) => v.n >= 3).sort((a, b) => (b[1].net / b[1].n) - (a[1].net / a[1].n));
+  if (durs.length) out.rules.push(`Horizonte: tu mejor tramo es ${durs[0][0]} (${usd(durs[0][1].net / durs[0][1].n)} por operación).`);
+
+  const order = { bad: 0, warn: 1, good: 2, info: 3 };
+  out.alerts.sort((a, b) => order[a.level] - order[b.level]);
+  return out;
+}
+
+/* ===== Motor de insights ===== */
+function buildInsights(s) {
+  const out = [];
+  if (!s.n) return out;
+  const usd = x => (x < 0 ? '-' : '') + 'US$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  const dur = ms => {
+    if (!isFinite(ms) || ms <= 0) return '0 min';
+    const m = ms / 6e4;
+    if (m < 60) return m.toFixed(0) + ' min';
+    if (m < 1440) return (m / 60).toFixed(1) + ' h';
+    return (m / 1440).toFixed(1) + ' días';
+  };
+  const add = (level, title, text) => out.push({ level, title, text });
+  const racha = n => `${n} pérdida${n === 1 ? '' : 's'} consecutiva${n === 1 ? '' : 's'}`;
+
+  if (s.n < 30) {
+    add('info', 'Muestra chica',
+      `${s.n} trades cerrados. Debajo de ~30 operaciones casi nada de lo que sigue es estadísticamente ` +
+      `distinguible de la suerte. Tomalo como hipótesis a verificar, no como diagnóstico.`);
+  }
+
+  // 0. Liquidaciones — lo más caro y lo único totalmente evitable
+  if (s.liq.n) {
+    const det = s.liq.trades.map(t => `${t.symbol} ${new Date(t.entryTime).toLocaleDateString('es-AR')} (${usd(t.net)})`).join(', ');
+    add('bad', `${s.liq.n} ${s.liq.n > 1 ? 'liquidaciones' : 'liquidación'}: ${usd(s.liq.net)}`,
+      `${det}. En todas el cierre lo ejecutó el exchange a mercado, no vos. ` +
+      `Neto con ellas: ${usd(s.net)}. Sin ellas: ${usd(s.net - s.liq.net)}. ` +
+      `En todas, la distancia al stop era mayor que la distancia a la liquidación.`);
+  }
+
+  // 0b. Sesiones
+  const ses = Object.entries(s.bySession).filter(([, v]) => v.n >= 3).sort((a, b) => b[1].net - a[1].net);
+  if (ses.length >= 2) {
+    const [bk, bv] = ses[0], [wk, wv] = ses[ses.length - 1];
+    if (bv.net > 0 && wv.net < 0) {
+      add('info', 'Tenés una franja horaria que funciona y otra que no',
+        `${SESSIONS[bk].label} (${SESSIONS[bk].art} de Buenos Aires): ${usd(bv.net)} en ${bv.n} operaciones. ` +
+        `${SESSIONS[wk].label} (${SESSIONS[wk].art}): ${usd(wv.net)} en ${wv.n}. ` +
+        `Por operación: ${usd(bv.net / bv.n)} contra ${usd(wv.net / wv.n)}.`);
+    }
+  }
+
+  // 1. Costos
+  const costos = s.fees - Math.min(s.funding, 0);
+  const bruto = Math.max(s.gross, 0);
+  if (bruto > 0 && costos / bruto > 0.15) {
+    add('bad', 'Los costos se están comiendo el resultado',
+      `Pagaste ${usd(s.fees)} de fees${s.funding < 0 ? ` y ${usd(-s.funding)} de funding` : ''}, ` +
+      `contra ${usd(s.gross)} de PnL bruto: ${((costos / bruto) * 100).toFixed(1)}% de lo que ganaste operando ` +
+      `se fue en costos. Con ${s.n} trades y ${usd(s.volume)} de volumen, cada operación de más te cuesta ` +
+      `${usd(s.fees / s.n)} promedio antes de tener razón.`);
+  }
+
+  // 2. Efecto disposición
+  if (s.avgDurWin > 0 && s.avgDurLoss / s.avgDurWin > 1.3) {
+    add('bad', 'Efecto disposición: cortás las ganadoras y aguantás las perdedoras',
+      `Tus perdedoras duran ${dur(s.avgDurLoss)} en promedio y tus ganadoras ${dur(s.avgDurWin)} — ` +
+      `${(s.avgDurLoss / s.avgDurWin).toFixed(1)}x más tiempo aguantando lo que no funciona. ` +
+      `Es el patrón mejor documentado en trading minorista. En tu muestra, cada perdedora estuvo ` +
+      `abierta ${dur(s.avgDurLoss - s.avgDurWin)} más que una ganadora promedio.`);
+  } else if (s.avgDurLoss > 0 && s.avgDurWin / s.avgDurLoss > 1.3) {
+    add('good', 'Dejás correr las ganadoras',
+      `Ganadoras ${dur(s.avgDurWin)} vs perdedoras ${dur(s.avgDurLoss)}. Estás sosteniendo lo que funciona ` +
+      `y soltando rápido lo que no — la relación correcta, y la menos común.`);
+  }
+
+  // 3. Win rate vs payoff
+  if (s.winRate > 0.5 && s.payoff < 1) {
+    add('bad', 'Acertás seguido y perdés plata igual',
+      `Ganás el ${(s.winRate * 100).toFixed(0)}% de las veces, pero tu pérdida promedio (${usd(s.avgLoss)}) ` +
+      `es ${(1 / s.payoff).toFixed(1)}x tu ganancia promedio (${usd(s.avgWin)}). ${s.wins.length} aciertos ` +
+      `suman ${usd(s.sumWins)} y ${s.losses.length} errores restan ${usd(-s.sumLosses)}.`);
+  } else if (s.winRate < 0.45 && s.payoff > 1.8) {
+    add('good', 'Perfil de asimetría',
+      `Acertás solo el ${(s.winRate * 100).toFixed(0)}% pero cobrás ${s.payoff.toFixed(1)}x más en cada acierto. ` +
+      `Ese perfil requiere atravesar rachas largas sin cambiar el método: la tuya llegó a ${s.maxLossStreak} pérdidas seguidas.`);
+  }
+
+  // 4. Profit factor / expectativa
+  add(s.expectancy >= 0 ? 'good' : 'bad', 'Expectativa por trade',
+    `${usd(s.expectancy)} por operación, profit factor ${isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'}. ` +
+    (s.expectancy >= 0
+      ? `Sobre ${s.n} operaciones, el conjunto suma ${usd(s.net)}.`
+      : `Valor esperado negativo: a más operaciones, más pérdida acumulada. Sobre ${s.n} operaciones, ${usd(s.net)}.`));
+
+  // 5. Revenge trading
+  if (s.revenge.n >= 3) {
+    const dif = s.revenge.net / s.revenge.n - s.expectancy;
+    add(dif < 0 ? 'bad' : 'info', 'Trades abiertos en caliente',
+      `${s.revenge.n} operaciones (${((s.revenge.n / s.n) * 100).toFixed(0)}% del total) las abriste dentro de ` +
+      `los 30 minutos de cerrar una perdedora. Resultado: ${usd(s.revenge.net)}, o sea ${usd(s.revenge.net / s.revenge.n)} ` +
+      `por operación, contra ${usd(s.expectancy)} de tu promedio general` +
+      (dif < 0 ? `. Diferencia: ${usd(dif)} por operación.` : `.`));
+  }
+
+  // 6. Escalada de tamaño
+  if (s.sizeAfterWin > 0 && s.sizeAfterLoss / s.sizeAfterWin > 1.25) {
+    add('bad', 'Agrandás la apuesta después de perder',
+      `Notional promedio después de una pérdida: ${usd(s.sizeAfterLoss)}. Después de una ganancia: ` +
+      `${usd(s.sizeAfterWin)}. Ratio ${(s.sizeAfterLoss / s.sizeAfterWin).toFixed(1)}x. ` +
+      `Tu racha perdedora más larga fue de ${racha(s.maxLossStreak)}.`);
+  }
+
+  // 7. Concentración del resultado
+  if (s.net > 0 && s.netExBest < 0) {
+    add('bad', 'Todo el resultado es un solo trade',
+      `Neto ${usd(s.net)}. Sin ${s.best.symbol} (${usd(s.best.net)}): ${usd(s.netExBest)}. ` +
+      `El resultado de ${s.n} operaciones depende de una.`);
+  } else if (s.net > 0 && s.netExTop3 < 0) {
+    add('warn', 'El resultado vive en tres trades',
+      `Sin tus 3 mejores operaciones el neto es ${usd(s.netExTop3)}. Las otras ${s.n - 3} en conjunto restan.`);
+  }
+
+  // 8. Long vs short
+  const L = s.bySide.long, S = s.bySide.short;
+  if (L.n >= 5 && S.n >= 5 && sgn(L.net) !== sgn(S.net)) {
+    const mal = L.net < S.net ? 'long' : 'short';
+    const malN = Math.min(L.net, S.net), bienN = Math.max(L.net, S.net);
+    add('info', `Los dos lados dan resultados opuestos`,
+      `Longs: ${usd(L.net)} en ${L.n} operaciones. Shorts: ${usd(S.net)} en ${S.n}. ` +
+      `Solo el lado positivo suma ${usd(bienN)} contra ${usd(s.net)} del total; el lado ${mal} resta ${usd(malN)}.`);
+  }
+
+  // 9. Símbolo que arrastra
+  const syms = Object.entries(s.bySymbol).sort((a, b) => a[1].net - b[1].net);
+  if (syms.length > 2) {
+    const [peorSym, peor] = syms[0];
+    if (peor.net < 0 && Math.abs(peor.net) > Math.abs(s.net) * 0.3 && peor.n >= 3) {
+      add('warn', `${peorSym}: ${usd(peor.net)} en ${peor.n} operaciones`,
+        `${usd(peor.net)} en ${peor.n} operaciones (${((peor.wins / peor.n) * 100).toFixed(0)}% de acierto). ` +
+        `Sin ese símbolo tu neto sería ${usd(s.net - peor.net)}.`);
+    }
+    const [mejorSym, mejor] = syms[syms.length - 1];
+    if (mejor.net > 0 && mejor.n >= 3) {
+      add('good', `${mejorSym}: ${usd(mejor.net)} en ${mejor.n} operaciones`,
+        `${((mejor.wins / mejor.n) * 100).toFixed(0)}% de acierto, ${usd(mejor.net / mejor.n)} por operación ` +
+        `contra ${usd(s.expectancy)} de tu promedio general.`);
+    }
+  }
+
+  // 10. Sobreoperación
+  if (s.nDays >= 10 && s.netBusyDay < s.netCalmDay) {
+    add('warn', 'Los días de mucha actividad te rinden peor',
+      `Días con más de ${s.medianTradesDay} operaciones: ${usd(s.netBusyDay)} promedio. Días tranquilos: ` +
+      `${usd(s.netCalmDay)}. Diferencia por día: ${usd(s.netBusyDay - s.netCalmDay)}.`);
+  }
+
+  // 11. Duración óptima
+  const durs = Object.entries(s.byDur).filter(([, v]) => v.n >= 5);
+  if (durs.length >= 2) {
+    const best = durs.reduce((a, b) => (b[1].net / b[1].n > a[1].net / a[1].n ? b : a));
+    const worst = durs.reduce((a, b) => (b[1].net / b[1].n < a[1].net / a[1].n ? b : a));
+    if (best[0] !== worst[0]) {
+      add('info', 'Tu horizonte rentable',
+        `Mejor tramo: ${best[0]} (${usd(best[1].net / best[1].n)} por trade, ${best[1].n} operaciones). ` +
+        `Peor: ${worst[0]} (${usd(worst[1].net / worst[1].n)}, ${worst[1].n}). ` +
+        `Diferencia por operación: ${usd(best[1].net / best[1].n - worst[1].net / worst[1].n)}.`);
+    }
+  }
+
+  // 12. Drawdown
+  if (s.maxDD > 0) {
+    add('info', 'Peor racha',
+      `Drawdown máximo de ${usd(s.maxDD)} sobre el PnL acumulado, y ${racha(s.maxLossStreak)}. ` +
+      (s.net > 0 ? `Contra una ganancia total de ${usd(s.net)}: ratio ${(s.maxDD / s.net).toFixed(1)}x.` : ``));
+  }
+
+  const order = { bad: 0, warn: 1, good: 2, info: 3 };
+  return out.sort((a, b) => order[a.level] - order[b.level]);
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { buildTrades, attachFunding, computeStats, buildInsights, parseCoin,
+    sessionOf, buildDayPlan, analyzePositions, todayBySession, comparativas, taladro, habitos, mitades, serieCuenta, probRacha, rachasEsperadas, presupuesto, explica, repertorio, relojSesion, ventanaEvento, FOMC, SESSIONS };
+}
+
+
+/* ===================== estado y utilidades ===================== */
+const API = 'https://api.hyperliquid.xyz/info';
+let RAW = null, TRADES = [], LIVE = null, CHARTS = {}, SORT = { k: 'entryTime', dir: -1 };
+const $ = id => document.getElementById(id);
+const usd = x => (x < 0 ? '-' : '') + '$' + Math.abs(x).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const usd0 = x => (x < 0 ? '-' : '') + '$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+const pct = x => (x * 100).toFixed(1) + '%';
+const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : 'mut';
+const fdate = t => new Date(t).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+const fdur = ms => { if (!ms) return '—'; const m = ms / 6e4; return m < 60 ? m.toFixed(0) + ' min' : m < 1440 ? (m / 60).toFixed(1) + ' h' : (m / 1440).toFixed(1) + ' d'; };
+const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+                set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+function say(msg, err) { $('status').textContent = msg; $('status').className = 'status' + (err ? ' err' : ''); }
+
+/* ===== Persistencia =====
+   Sin esto las rachas no existen: cada recarga volvería a cero. Guardamos en IndexedDB
+   (con localStorage de red) y, si el navegador lo permite, también en un archivo tuyo. */
+const DB = (() => {
+  let db, listo;
+  const abrir = () => listo || (listo = new Promise(res => {
+    try {
+      const r = indexedDB.open('taladro', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(db = r.result);
+      r.onerror = () => res(null);
+    } catch (e) { res(null); }
+  }));
+  return {
+    async get(k) {
+      const d = await abrir();
+      if (!d) { try { return JSON.parse(localStorage.getItem('taladro_' + k)); } catch (e) { return null; } }
+      return new Promise(res => { const q = d.transaction('kv', 'readonly').objectStore('kv').get(k);
+        q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+    },
+    async set(k, v) {
+      const d = await abrir();
+      if (!d) { try { localStorage.setItem('taladro_' + k, JSON.stringify(v)); } catch (e) {} return; }
+      return new Promise(res => { const q = d.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+        q.onsuccess = () => res(true); q.onerror = () => res(false); });
+    }
+  };
+})();
+
+let DATOS = { addr: '', notas: {}, hitos: {}, v: 1 };
+let HANDLE = null, guardarTimer = null;
+
+async function cargarDatos() {
+  const d = await DB.get('datos');
+  if (d && typeof d === 'object') DATOS = Object.assign(DATOS, d);
+  HANDLE = await DB.get('archivo');
+  if (HANDLE) marcaArchivo('vinculado');
+  if (DATOS.addr && !$('addr').value) $('addr').value = DATOS.addr;
+}
+
+function guardar() {
+  clearTimeout(guardarTimer);
+  guardarTimer = setTimeout(async () => {
+    await DB.set('datos', DATOS);
+    await escribirArchivo();
+    marcaArchivo(HANDLE ? 'guardado' : 'local');
+  }, 400);
+}
+
+const FSA = typeof window !== 'undefined' && !!window.showSaveFilePicker;
+function marcaArchivo(estado) {
+  const t = { vinculado: 'archivo vinculado', guardado: 'guardado en tu archivo',
+    local: 'guardado en este navegador', error: 'no pude escribir el archivo' }[estado] || '';
+  const el = $('archivo'); if (el) el.textContent = t;
+}
+async function permiso(h, modo) {
+  try { const o = { mode: modo }; let p = await h.queryPermission(o); if (p === 'granted') return p;
+    return await h.requestPermission(o); } catch (e) { return 'denied'; }
+}
+async function escribirArchivo() {
+  if (!HANDLE) return;
+  try {
+    if (await permiso(HANDLE, 'readwrite') !== 'granted') return marcaArchivo('error');
+    const w = await HANDLE.createWritable();
+    await w.write(JSON.stringify(DATOS, null, 2));
+    await w.close();
+  } catch (e) { marcaArchivo('error'); }
+}
+async function vincularArchivo() {
+  if (!FSA) return say('Tu navegador no permite vincular un archivo. Los datos igual quedan guardados acá.', true);
+  try {
+    HANDLE = await window.showSaveFilePicker({ suggestedName: 'taladro-datos.json',
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+    await DB.set('archivo', HANDLE);
+    await escribirArchivo();
+    marcaArchivo('guardado');
+  } catch (e) { if (e.name !== 'AbortError') marcaArchivo('error'); }
+}
+
+/* Pega las notas guardadas sobre los trades reconstruidos. */
+function aplicarNotas(trades) {
+  for (const t of trades) {
+    const n = DATOS.notas[t.id];
+    if (n) { t.tesis = n.tesis || null; t.tags = n.tags || []; t.nota = n.nota || ''; }
+    else { t.tesis = null; t.tags = []; t.nota = ''; }
+  }
+}
+
+/* ===================== descarga de datos ===================== */
+async function post(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' de la API de Hyperliquid');
+  return r.json();
+}
+
+async function pull(user) {
+  const fills = [];
+  let t = 0, page = 0;
+  while (page < 60) {
+    const chunk = await post({ type: 'userFillsByTime', user, startTime: t, aggregateByTime: true });
+    if (!Array.isArray(chunk) || !chunk.length) break;
+    fills.push(...chunk);
+    say(`Descargando fills… ${fills.length}`);
+    if (chunk.length < 2000) break;
+    t = chunk[chunk.length - 1].time + 1;
+    page++;
+  }
+  say('Descargando funding…');
+  let funding = [];
+  try {
+    let ft = fills.length ? fills[0].time - 864e5 : Date.now() - 365 * 864e5, fp = 0;
+    while (fp < 30) {
+      const c = await post({ type: 'userFunding', user, startTime: ft });
+      if (!Array.isArray(c) || !c.length) break;
+      funding.push(...c);
+      if (c.length < 500) break;
+      ft = c[c.length - 1].time + 1; fp++;
+    }
+  } catch (e) { /* el funding es opcional */ }
+
+  /* Estado y órdenes abiertas.
+     Para los perps HIP-3 hay que pedirlos con el parámetro `dex`: sin él la API
+     devuelve la cuenta nativa de Hyperliquid, que en esta wallet viene vacía. */
+  const dexes = [...new Set((fills || []).map(f => f.coin.includes(':') ? f.coin.split(':')[0] : ''))];
+  if (!dexes.includes('')) dexes.push('');
+  const state = {}, orders = {}, diag = [];
+  const useful = st => !!st && (
+    (Array.isArray(st.assetPositions) && st.assetPositions.length > 0) ||
+    +((st.marginSummary || {}).accountValue || 0) > 0);
+
+  for (const dx of dexes) {
+    const key = dx || 'hyperliquid';
+    say(`Leyendo estado${dx ? ' en ' + dx : ''}…`);
+    // No hay una sola forma documentada de pedir el estado de un dex HIP-3:
+    // probamos las variantes conocidas y nos quedamos con la que devuelva algo.
+    const cands = [
+      ['clearinghouseState+dex', { type: 'clearinghouseState', user, dex: dx }],
+      ['perpDexClearinghouseState', { type: 'perpDexClearinghouseState', user, dex: dx }],
+      ['webData2', { type: 'webData2', user }]
+    ];
+    for (const [label, body] of cands) {
+      let r = null;
+      try { r = await post(body); } catch (e) { diag.push(`${key}/${label}: error`); continue; }
+      const st = r && r.clearinghouseState ? r.clearinghouseState : r;
+      diag.push(`${key}/${label}: ${useful(st) ? 'OK' : 'vacío'}`);
+      if (!state[key] || useful(st)) { state[key] = st; state[key].__source = label; }
+      if (r && Array.isArray(r.openOrders) && r.openOrders.length && !(orders[key] || []).length) orders[key] = r.openOrders;
+      if (useful(st)) break;
+    }
+    try {
+      const o = await post({ type: 'frontendOpenOrders', user, dex: dx });
+      if (Array.isArray(o) && (o.length || !(orders[key] || []).length)) orders[key] = o;
+    } catch (e) {}
+  }
+  // curva real de valor de cuenta: incluye depósitos y retiros
+  const portfolio = {};
+  for (const dx of dexes) {
+    try { const pf = await post({ type: 'portfolio', user, dex: dx }); if (pf) portfolio[dx || 'hyperliquid'] = pf; } catch (e) {}
+  }
+  return { user, fills, funding, state, orders, portfolio, dexes, diag, pulledAt: Date.now() };
+}
+
+/* Aplana el estado por dex a listas únicas de posiciones y órdenes. */
+function flattenLive(raw) {
+  const st = raw.state, or = raw.orders;
+  // acepta tanto el formato viejo (un solo clearinghouseState) como el nuevo (mapa por dex)
+  const states = !st ? [] : (st.marginSummary || st.assetPositions ? [st] : Object.values(st).filter(Boolean));
+  const orderLists = !or ? [] : (Array.isArray(or) ? [or] : Object.values(or).filter(Array.isArray));
+  const pos = [], ord = [];
+  let equity = 0;
+  for (const s of states) {
+    if (Array.isArray(s.assetPositions)) pos.push(...s.assetPositions);
+    if (s.marginSummary) equity += +(s.marginSummary.accountValue || 0);
+  }
+  for (const l of orderLists) ord.push(...l);
+  return { pos, ord, equity };
+}
+
+/* ===================== render ===================== */
+function ingest(raw) {
+  RAW = raw;
+  $('addr').value = raw.user || $('addr').value;
+  TRADES = buildTrades(raw.fills || []);
+  attachFunding(TRADES, raw.funding || []);
+  aplicarNotas(TRADES);
+  LIVE = flattenLive(raw);
+  if (raw.user) { DATOS.addr = raw.user; guardar(); }
+  if (!TRADES.length) { say('La wallet no tiene fills en HyperCore. ¿Es la dirección correcta?', true); return; }
+  $('app').classList.remove('hide');
+  $('saveBtn').disabled = false;
+  $('btnVivo').disabled = false;
+  // a partir de acá el alta ya cumplió su función: se hace una línea
+  const a = raw.user || $('addr').value;
+  $('chip').textContent = a.slice(0, 8) + '…' + a.slice(-4);
+  $('setup').classList.add('compacto');
+  $('lema').classList.add('hide');
+  buildFilters();
+  render();
+  const cerrados = TRADES.filter(t => !t.open).length;
+  say(`${raw.fills.length} fills → ${TRADES.length} operaciones (${cerrados} cerradas) · ${new Date(raw.pulledAt).toLocaleString('es-AR')}`);
+}
+
+function buildFilters() {
+  const dexes = [...new Set(TRADES.map(t => t.dex))].sort();
+  const pref = dexes.find(d => d !== 'hyperliquid') || dexes[0];
+  $('fDex').innerHTML = '<option value="">Todos los mercados</option>' +
+    dexes.map(d => `<option value="${d}"${d === pref && dexes.length > 1 ? ' selected' : ''}>${d === 'hyperliquid' ? 'Hyperliquid nativo' : d}</option>`).join('');
+  syncSyms();
+  $('fSym').value = ''; $('fSide').value = '';
+  setPreset('hoy');   // el foco arranca en el día; "Todo" está a un click
+}
+
+/* Presets de período. El panel de preparación y los insights siempre usan
+   el historial completo; esto solo mueve el foco de KPIs, gráficos y tabla. */
+function setPreset(p) {
+  const ts = TRADES.map(t => t.entryTime);
+  const hoy = new Date();
+  if (p === 'hoy') { $('fFrom').value = localDay(hoy); $('fTo').value = localDay(hoy); }
+  else if (p === '7d') { $('fFrom').value = localDay(hoy - 6 * 864e5); $('fTo').value = localDay(hoy); }
+  else { $('fFrom').value = localDay(Math.min(...ts)); $('fTo').value = localDay(Math.max(...ts)); }
+  $('preset').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+}
+/* fecha local en formato YYYY-MM-DD: usar toISOString acá desplaza el día
+   y deja afuera el primer o el último trade según el huso horario */
+function localDay(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function syncSyms() {
+  const dex = $('fDex').value, cur = $('fSym').value;
+  const syms = [...new Set(TRADES.filter(t => !dex || t.dex === dex).map(t => t.symbol))].sort();
+  $('fSym').innerHTML = '<option value="">Todos los símbolos</option>' + syms.map(s => `<option${s === cur ? ' selected' : ''}>${s}</option>`).join('');
+}
+
+/* ignoreDate=true devuelve todo el historial con los demás filtros aplicados:
+   el foco es el día, pero el contexto que juzga el día tiene que ser histórico. */
+function filtered(ignoreDate) {
+  const dex = $('fDex').value, sym = $('fSym').value, side = $('fSide').value;
+  const from = !ignoreDate && $('fFrom').value ? new Date($('fFrom').value + 'T00:00').getTime() : -Infinity;
+  const to = !ignoreDate && $('fTo').value ? new Date($('fTo').value + 'T23:59:59').getTime() : Infinity;
+  return TRADES.filter(t => (!dex || t.dex === dex) && (!sym || t.symbol === sym) && (!side || t.side === side)
+    && t.entryTime >= from && t.entryTime <= to);
+}
+
+function render() {
+  const sel = filtered(), base = filtered(true);
+  const s = computeStats(sel), sBase = computeStats(base);
+  $('count').textContent = `${s.n} cerradas · ${s.nOpen} abiertas`;
+  renderResumen(sBase, base);
+  renderDayPlan(sBase, base);
+  renderKpis(s);
+  renderHabitos(sBase);
+  renderRachas(sBase);
+  renderAdherence(sBase);
+  renderMitades(sBase);
+  renderComparativas(sBase);
+  renderInsights(sBase);
+  renderCharts(s, sel);
+  renderTables(sel);
+}
+
+/* Vista mínima: posición, día, y un solo aviso. Todo lo demás va detrás de "Ver detalle". */
+/* ===== La mascota =====
+   Un taladro con cara. La expresión cambia según lo que tenga para decir;
+   gira solo cuando habla y por defecto está dormido. */
+/* Un taladro y nada más. El estado se comunica con el color, no con la cara:
+   gris cuando duerme, ámbar cuando marca algo, verde cuando reconoce, rojo cuando hay riesgo.
+   La mecha gira solo mientras habla. */
+const drillSvg = () => `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor"
+  stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="5" y="12" width="24" height="17" rx="8"/>
+  <path d="M11 29 L9.5 40 h8.5 L19.5 29"/>
+  <path d="M29 17.5 h5 v6 h-5"/>
+  <path class="bit" d="M34 20.5 H45"/>
+  <path d="M9.5 18 h4 M9.5 22 h4"/>
+</svg>`;
+
+/* Pasar por encima de cualquier métrica hace que Taladro explique la regla.
+   Al salir vuelve a lo que estaba diciendo. */
+let VOZ_BASE = null;
+function hablarHover(linea) {
+  if (!VOZ_BASE) VOZ_BASE = { html: $('dice').innerHTML, cls: $('tal').className };
+  $('tal').className = 'tal info habla';
+  $('dice').innerHTML = linea;
+}
+function volverVoz() {
+  if (!VOZ_BASE) return;
+  $('tal').className = VOZ_BASE.cls;
+  $('dice').innerHTML = VOZ_BASE.html;
+  VOZ_BASE = null;
+}
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest && e.target.closest('[data-tal]');
+  if (el && el.dataset.tal) hablarHover(el.dataset.tal);
+});
+document.addEventListener('mouseout', e => {
+  const el = e.target.closest && e.target.closest('[data-tal]');
+  const hacia = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-tal]');
+  if (el && !hacia) volverVoz();
+});
+
+/* Silenciar es por tipo de mensaje, no por el texto exacto: si el número cambia
+   —"van 27" y un rato después "van 28"— sigue siendo el mismo aviso y no vuelve a saltar. */
+function silenciado(id) {
+  if (!id) return false;
+  const hasta = (DATOS.callados || {})[id] || 0;
+  return Date.now() < hasta;
+}
+function renderTaladro(v) {
+  // un hito se festeja una sola vez: queda anotado y no vuelve a saltar
+  if (v.hito) { DATOS.hitos[v.hito.id] = v.hito.racha; guardar(); }
+  const abierto = v.habla && !silenciado(v.id);
+  $('tal').className = 'tal ' + v.tono + (abierto ? ' habla' : '');
+  $('dice').innerHTML = v.linea || 'Sin novedades.';
+  $('cuerpo').innerHTML = drillSvg();
+  $('tal').dataset.vozId = v.id || '';
+  $('tal').dataset.vozMs = v.silencio || '';
+}
+
+/* Rachas esperadas. Sirve para una sola cosa: que una mala racha se lea como
+   lo que estadísticamente es, y no como una falla personal. */
+function renderRachas(s) {
+  const r = rachasEsperadas(s, 100);
+  $('rachaPanel').classList.toggle('hide', !r || s.n < 10);
+  if (!r || s.n < 10) return;
+  $('rachas').innerHTML = r.filas.map(f => `
+    <div class="rf" data-tal="${esc(explica('racha', f, s))}">
+      <div class="rk">${f.k} o más seguidas</div>
+      <div class="rb"><div style="width:${Math.max(2, f.p * 100).toFixed(0)}%"></div></div>
+      <div class="rp">${(f.p * 100).toFixed(0)}%</div>
+    </div>`).join('');
+  $('rachaPie').innerHTML =
+    `Con tu acierto actual de <b>${pct(s.winRate)}</b>, así se reparten las rachas perdedoras en 100 operaciones. ` +
+    `La racha larga típica es de <b>${r.tipica}</b> y la peor que tuviste fue de <b>${r.real}</b>. ` +
+    `Una racha larga no dice que estés haciendo algo mal: es el precio normal de un método con acierto parcial, ` +
+    `y por eso lo que se mide arriba son las acciones y no el resultado.`;
+}
+
+function renderHabitos(s) {
+  const H = habitos(s.trades || [], s);
+  $('habPanel').classList.toggle('hide', !H.length);
+  if (!H.length) return;
+  $('habitos').innerHTML = H.map(h => {
+    const p = h.meta ? Math.min(100, (h.racha / h.meta) * 100) : 100;
+    const dots = (h.serie || []).map(x =>
+      `<i class="${x.ok ? 's' : 'n'}" title="${fdate(x.t.entryTime)} · ${x.t.symbol} · ${usd(x.t.net)}"></i>`).join('');
+    return `<div class="hab ${h.cumple ? '' : 'roto'}" data-tal="${esc(explica('habito', h, s))}">
+      <div class="hn">${h.nombre}<span>${h.accion}</span></div>
+      <div class="hmid"><div class="dots">${dots}</div><div class="hb"><div style="width:${p}%"></div></div></div>
+      <div class="hv"><b>${h.racha}</b> al hilo${h.meta ? ` · próximo hito ${h.meta}` : ''}
+        <span>récord ${h.mejor} · ${(h.pct * 100).toFixed(0)}% en las últimas 20</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderResumen(s, base) {
+  const td0 = todayBySession(base);
+  const posAn = (LIVE && LIVE.pos.length) ? analyzePositions(LIVE.pos, LIVE.ord, s) : [];
+  renderReloj();
+  renderTaladro(taladro(s, posAn, td0, null, DATOS.hitos));
+  // un modo por vez: o preparás la próxima, o gestionás la que tenés
+  renderEnTrade(s, posAn);
+  renderPrep(s, base, posAn);
+  $('resumen').innerHTML = `<div class="r"><span class="lab">Hoy</span>
+    <span class="big ${cls(td0.net)}">${usd(td0.net)}</span>
+    <span class="sub">${td0.hoy.length} ${td0.hoy.length === 1 ? 'operación cerrada' : 'operaciones cerradas'}</span></div>`;
+}
+
+/* Reloj: solo hechos de calendario. Qué sesión corre, cuánto falta para el próximo
+   cambio estructural, y si hay un evento del Fed en las próximas horas. */
+function renderReloj() {
+  const r = relojSesion();
+  const ses = SESSIONS[sessionOf(Date.now())];
+  const ms = m => {
+    if (m < 0) return 'ya';
+    const s = Math.floor(m / 1000), h = Math.floor(s / 3600), mi = Math.floor((s % 3600) / 60);
+    return h ? `${h} h ${mi} min` : mi ? `${mi} min` : `${s % 60} s`;
+  };
+  $('reloj').innerHTML =
+    `<span><b>${ses.label}</b> · ${ses.art}</span>` +
+    `<span>${r.prox.label} <b>en ${ms(r.prox.ms)}</b> · ${r.prox.art}</span>` +
+    (r.evento ? `<span class="ev">${r.evento.label} <b>en ${ms(r.evento.ms)}</b> · ${r.evento.art}</span>` : '') +
+    (r.ventana ? `<span class="vt">${r.ventana.label}</span>` : '');
+}
+setInterval(() => { if (TRADES.length) renderReloj(); }, 1000);
+
+/* ===== Modo dentro: gestionar la posición y el momento ===== */
+function renderEnTrade(s, posAn) {
+  $('enTrade').classList.toggle('hide', !posAn.length);
+  if (!posAn.length) return;
+  const n = x => x == null ? '—' : x.toLocaleString('es-AR', { maximumFractionDigits: 4 });
+  const banda = (s.adherence ? s.adherence.rec.avgLoss : s.avgLoss) || 0;
+  const total = posAn.reduce((a, p) => a + p.uPnl, 0);
+  const enRiesgo = posAn.reduce((a, p) => a + (p.pnlAtStop != null ? Math.min(0, p.pnlAtStop) : -p.margin), 0);
+  const varias = posAn.length > 1;
+
+  $('enTiempo').textContent = varias ? `${posAn.length} posiciones abiertas` : '';
+  $('enPnl').innerHTML = `<div class="enp ${cls(total)}">${usd(total)}
+    <span>${varias
+      ? `${posAn.map(p => p.symbol + ' ' + p.side).join(' · ')} — ${usd(enRiesgo)} en riesgo si saltan todos los stops`
+      : `${posAn[0].symbol} ${posAn[0].side}${posAn[0].lev ? ' · ' + posAn[0].lev + 'x' : ''} · ${usd0(posAn[0].notional)}`}</span></div>`;
+
+  // un bloque por posición: cada una tiene su propio stop y su propia distancia
+  $('enDatos').innerHTML = posAn.map(r => `
+    <div class="pblk" data-tal="${esc(explica('posicion', r, s))}">
+      ${varias ? `<div class="ph">${r.symbol} <span class="tag ${r.side === 'long' ? 'up' : 'down'}">${r.side}</span>
+        ${r.lev ? `<span class="tag">${r.lev}x</span>` : ''} <span class="mut">${usd0(r.notional)}</span>
+        <b class="${cls(r.uPnl)}">${usd(r.uPnl)}</b></div>` : ''}
+      <div class="eng">
+        <div><span>Entrada</span>${n(r.entry)}</div>
+        <div><span>Mark</span>${n(r.mark)}</div>
+        <div><span>Stop</span>${r.stopPx ? n(r.stopPx) + ` <small class="mut">${r.distStop.toFixed(2)}%</small>` : '<b class="down">sin stop</b>'}</div>
+        <div><span>Liquidación</span>${r.liqPx ? n(r.liqPx) + ` <small class="mut">${r.distLiq.toFixed(1)}%</small>` : '—'}</div>
+        <div><span>Si salta el stop</span>${r.pnlAtStop != null
+          ? `<b class="${cls(r.pnlAtStop)}">${usd(r.pnlAtStop)}</b>` : '<b class="down">todo el margen</b>'}</div>
+      </div>
+    </div>`).join('');
+
+  // el ancla: una frase por posición, más las generales al final
+  const a = [];
+  for (const r of posAn) {
+    const q = varias ? `${r.symbol}: ` : '';
+    if (r.pnlAtStop == null) {
+      a.push(['bad', `${q}no hay stop cargado, así que la única salida definida es la liquidación, ` +
+        `a ${r.distLiq ? r.distLiq.toFixed(1) + '%' : 's/d'}.`]);
+    } else if (r.pnlAtStop >= 0) {
+      a.push(['good', `${q}el stop ya está en ganancia, así que pase lo que pase esta operación suma ${usd(r.pnlAtStop)}.`]);
+    } else if (banda > 0) {
+      const veces = Math.abs(r.pnlAtStop) / banda;
+      a.push([veces <= 1.5 ? 'good' : 'warn',
+        `${q}si salta el stop anotás ${usd(r.pnlAtStop)}, ${veces.toFixed(1)}x tu banda habitual de ${usd(banda)}.`]);
+    }
+  }
+  if (varias && banda > 0) {
+    a.push([Math.abs(enRiesgo) <= banda * 2 ? 'good' : 'warn',
+      `Entre las ${posAn.length} arriesgás ${usd(enRiesgo)} si saltan todos los stops, ` +
+      `${(Math.abs(enRiesgo) / banda).toFixed(1)}x tu banda de una sola operación.`]);
+  }
+  if (s.n >= 10 && s.winRate) {
+    a.push(['info', `Con tu acierto de ${pct(s.winRate)}, de cada 10 operaciones como esta ` +
+      `${Math.round((1 - s.winRate) * 10)} cierran en rojo, y eso no dice nada de cómo la tomaste.`]);
+  }
+  if (s.adherence && s.adherence.rec.durWin) {
+    a.push(['info', `Tus ganadoras promedian ${Math.round(s.adherence.rec.durWin / 6e4)} minutos abiertas ` +
+      `y tus perdedoras ${Math.round(s.adherence.rec.durLoss / 6e4)}.`]);
+  }
+  $('enAncla').innerHTML = a.map(([lv, t]) => `<div class="anc ${lv}">${t}</div>`).join('');
+}
+
+function renderDayPlan(s, base) {
+  const p = buildDayPlan(s);
+  const S = SESSIONS[p.session];
+  $('sessNow').innerHTML = `Ahora: <b>${S.label}</b> · ${S.art} · ${new Date().toLocaleString('es-AR')}`;
+
+  // franja de sesiones del día: qué hiciste hoy en cada una, con el histórico debajo
+  const td = todayBySession(base);
+  const orden = ['asia', 'hueco', 'pre', 'rueda', 'after'];
+  $('sessStrip').innerHTML = orden.map(k => {
+    const h = td.by[k], hist = s.bySession[k];
+    return `<div class="ss ${k === p.session ? 'now' : ''}">
+      <div class="n">${SESSIONS[k].label}</div><div class="h">${SESSIONS[k].art}</div>
+      <div class="v ${h ? cls(h.net) : 'mut'}">${h ? usd(h.net) : '—'}</div>
+      <div class="h">${h ? h.n + ' hoy · ' : 'sin ops hoy · '}${hist ? 'histórico ' + usd(hist.net) : 's/ historial'}</div>
+    </div>`;
+  }).join('');
+
+  renderLive(s);
+  $('alerts').innerHTML = p.alerts.length
+    ? p.alerts.map(a => `<div class="ins ${a.level}"><div class="t">${a.title}</div><div class="d">${a.text}</div></div>`).join('')
+    : '<div class="mut">Sin alertas de contexto.</div>';
+  $('rules').innerHTML = p.rules.map(r => `<div>${r}</div>`).join('');
+}
+
+function renderComparativas(s) {
+  const c = s.comparativas || [];
+  $('compPanel').classList.toggle('hide', !c.length);
+  if (!c.length) return;
+  $('tComp').innerHTML =
+    '<thead><tr><th>Contexto</th><th>Ops</th><th>Por operación</th><th>El resto</th><th>Diferencia</th><th>Estable</th></tr></thead><tbody>' +
+    c.map(r => {
+      const d = r.avg - r.avgResto;
+      const est = r.difA == null || r.difB == null
+        ? '<span class="mut" title="muestra insuficiente en alguna mitad">—</span>'
+        : r.estable ? '<span class="up">sí</span>' : '<span class="down">no</span>';
+      return `<tr><td>${r.label}</td><td class="mut">${r.n}</td>
+        <td class="${cls(r.avg)}">${usd(r.avg)}</td>
+        <td class="mut">${usd(r.avgResto)} <small>(${r.nResto})</small></td>
+        <td class="${cls(d)}"><b>${d > 0 ? '+' : ''}${usd(d)}</b></td>
+        <td>${est}</td></tr>`;
+    }).join('') + '</tbody>';
+}
+
+function renderMitades(s) {
+  const m = s.mitades;
+  $('mitPanel').classList.toggle('hide', !m);
+  if (!m) return;
+  const f = ts => ts ? new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '';
+  const filas = [
+    ['Operaciones', m.vieja.n, m.nueva.n, x => String(x)],
+    ['Expectativa por operación', m.vieja.exp, m.nueva.exp, usd],
+    ['Win rate', m.vieja.wr, m.nueva.wr, pct],
+    ['Pérdida promedio', m.vieja.avgLoss, m.nueva.avgLoss, usd]
+  ];
+  $('tMit').innerHTML =
+    `<thead><tr><th>Métrica</th><th>Primera mitad<br><small class="mut">${f(m.vieja.desde)} a ${f(m.vieja.hasta)}</small></th>
+      <th>Segunda mitad<br><small class="mut">${f(m.nueva.desde)} a ${f(m.nueva.hasta)}</small></th><th></th></tr></thead><tbody>` +
+    filas.map(([lab, a, b, fmt]) => {
+      const dir = b > a ? 'up' : b < a ? 'down' : 'mut';
+      return `<tr><td>${lab}</td><td class="mut">${fmt(a)}</td><td><b>${fmt(b)}</b></td>
+        <td class="${dir}">${b > a ? '▲' : b < a ? '▼' : '·'}</td></tr>`;
+    }).join('') + '</tbody>';
+}
+
+/* ===== Modo preparación =====
+   Aparece cuando no tenés nada abierto. No sugiere operar: convierte tu propia banda de
+   pérdida en un tamaño, antes de entrar, que es cuando la cuenta todavía sirve para algo. */
+function renderPrep(s, base, posAn) {
+  const listo = !posAn.length && TRADES.length > 0;
+  $('prepPanel').classList.toggle('hide', !listo);
+  if (!listo) return;
+
+  const ses = sessionOf(Date.now()), S = SESSIONS[ses];
+  $('prepSes').innerHTML = `${S.label} · ${S.art}`;
+
+  /* Una sola cosa para hacer mejor que la anterior: el hábito que no cumpliste,
+     o el más flojo de las últimas 20 si la última salió limpia. */
+  const H = habitos(s.trades || [], s);
+  const objetivo = H.filter(x => !x.cumple).sort((a, b) => a.pct - b.pct)[0] ||
+    H.slice().sort((a, b) => a.pct - b.pct)[0];
+  const ult = (s.trades || [])[(s.trades || []).length - 1];
+  if (objetivo) {
+    const m = ult && ult.exitTime ? (Date.now() - ult.exitTime) / 6e4 : null;
+    $('mejorar').innerHTML = `
+      <div class="mej" data-tal="${esc(explica('habito', objetivo, s))}">
+        <div class="mt">Mejor que la anterior</div>
+        <div class="mb">${objetivo.accion}</div>
+        <div class="mn">${objetivo.nombre}: ${objetivo.racha} al hilo,
+          ${(objetivo.pct * 100).toFixed(0)}% en las últimas 20${objetivo.meta ? `, próximo hito ${objetivo.meta}` : ''}.</div>
+        ${ult && ult.exitTime ? `<div class="mu">La anterior: ${ult.symbol} ${ult.side}, ${usd(ult.net)},
+          ${Math.round(ult.durationMs / 6e4)} min, hace ${m < 60 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h'}.</div>` : ''}
+      </div>`;
+  } else $('mejorar').innerHTML = '';
+
+  const ref = (s.adherence ? s.adherence.rec.avgLoss : s.avgLoss) || 0.2;
+  const pr = s.presupuesto;
+  if (!$('riesgo').value) $('riesgo').value = ref.toFixed(2);
+  if (pr && !$('stopPct').dataset.tocado) $('stopPct').value = pr.stopTipico.toFixed(2);
+  calcular();
+
+  // presupuesto: la fuga silenciosa va en las dos direcciones
+  if (pr) {
+    const col = { corto: 'warn', 'en banda': 'up', pasado: 'down' }[pr.estado];
+    const txt = { corto: 'venís entrando por debajo de lo que tu regla habilita',
+      'en banda': 'estás entrando en línea con tu regla',
+      pasado: 'venís entrando por encima de lo que tu regla habilita' }[pr.estado];
+    $('presu').innerHTML = `
+      <div class="pb" data-tal="${esc(explica('presupuesto', pr, s))}"><div class="pbf ${col}" style="width:${Math.min(100, pr.uso * 66).toFixed(0)}%"></div>
+        <span class="pbm"></span></div>
+      <div class="pl"><b class="${col === 'up' ? 'up' : col === 'warn' ? 'mut' : 'down'}">${(pr.uso * 100).toFixed(0)}% del presupuesto</b>
+        — ${txt}. Habilitado ${usd(pr.habilitado)}, usado ${usd(pr.usado)},
+        con una banda de ${usd(pr.banda)} y un stop típico de ${pr.stopTipico.toFixed(2)}%.</div>`;
+  } else $('presu').innerHTML = '';
+
+  $('prepNotas').innerHTML = '';
+}
+
+/* tamaño = riesgo / distancia al stop. Todo lo demás sale de ahí. */
+function calcular() {
+  const stop = +$('stopPct').value, riesgo = +$('riesgo').value;
+  const margen = LIVE ? LIVE.equity : 0;
+  if (!(stop > 0) || !(riesgo > 0)) { $('calc').innerHTML = ''; return; }
+  const notional = riesgo / (stop / 100);
+  const lev = margen > 0 ? notional / margen : null;
+  const liq = lev ? (1 / lev - 0.025) * 100 : null;   // mantenimiento 2,5% (activos de máx. 20x)
+  const mal = liq != null && stop >= liq;
+  const c = [`<div><span>Notional</span><b>${usd(notional)}</b></div>`,
+    `<div><span>Si salta el stop</span><b class="down">${usd(-riesgo)}</b></div>`];
+  if (lev) c.push(`<div><span>Apalancamiento</span><b>${lev.toFixed(1)}x</b></div>`);
+  if (liq != null) c.push(`<div class="${mal ? 'mal' : ''}"><span>Liquidación a</span>
+    <b class="${mal ? 'down' : ''}">${liq.toFixed(1)}%</b></div>`);
+  $('calc').innerHTML = c.join('');
+  $('prepNotas').dataset.mal = mal ? '1' : '';
+}
+
+function renderLive(s) {
+  if (!LIVE || !LIVE.pos.length) {
+    if (!LIVE) { $('livePos').innerHTML = ''; return; }
+    const diag = (RAW && RAW.diag) ? RAW.diag.join(' · ') : '';
+    $('livePos').innerHTML = `<div class="mut" style="margin-bottom:12px">Sin posiciones abiertas` +
+      (LIVE.equity ? ` · equity ${usd(LIVE.equity)}` : '') + `.` +
+      (!LIVE.equity && diag ? `<br><small>La API no devolvió el estado de la cuenta. Diagnóstico: ${diag}</small>` : '') +
+      `</div>`;
+    return;
+  }
+  const rows = analyzePositions(LIVE.pos, LIVE.ord, s);
+  const n = x => x == null ? '—' : x.toLocaleString('es-AR', { maximumFractionDigits: 4 });
+  $('livePos').innerHTML = rows.map(r => `
+    <div class="pos">
+      <div class="hd">
+        <span class="sym">${r.symbol}</span>
+        <span class="tag ${r.side === 'long' ? 'up' : 'down'}">${r.side}</span>
+        ${r.lev ? `<span class="tag">${r.lev}x</span>` : ''}
+        <span class="${cls(r.uPnl)}">${usd(r.uPnl)}</span>
+        <span class="mut">${usd0(r.notional)} de notional sobre ${usd(r.margin)} de margen</span>
+      </div>
+      <div class="g">
+        <div><span>Entrada</span>${n(r.entry)}</div>
+        <div><span>Mark</span>${n(r.mark)}</div>
+        <div><span>Stop</span>${r.stopPx ? n(r.stopPx) + ` <small class="mut">(${r.distStop.toFixed(2)}%)</small>` : '<b class="down">sin stop</b>'}</div>
+        <div><span>Objetivo</span>${r.tpPx ? n(r.tpPx) + ` <small class="mut">(${r.distTp.toFixed(2)}%)</small>` : '—'}</div>
+        <div><span>Liquidación</span>${r.liqPx ? n(r.liqPx) + ` <small class="mut">(${r.distLiq.toFixed(2)}%)</small>` : '—'}</div>
+        <div><span>Si salta el stop</span>${r.pnlAtStop != null
+          ? `<b class="${cls(r.pnlAtStop)}">${usd(r.pnlAtStop)}</b>` : '<b class="down">todo el margen</b>'}</div>
+      </div>
+      ${r.alerts.map(a => `<div class="a ${a.level}">${a.text}</div>`).join('')}
+    </div>`).join('');
+}
+
+function renderAdherence(s) {
+  const a = s.adherence;
+  $('adhPanel').classList.toggle('hide', !a);
+  if (!a) return;
+  const dur = ms => !ms ? '—' : ms < 36e5 ? (ms / 6e4).toFixed(0) + ' min' : (ms / 36e5).toFixed(1) + ' h';
+  const rows = [
+    ['Win rate', pct(a.rec.winRate), pct(a.base.winRate), a.rec.winRate - a.base.winRate, 'Acertar más seguido'],
+    ['Expectativa', usd(a.rec.expectancy), usd(a.base.expectancy), a.rec.expectancy - a.base.expectancy, 'Ganancia esperada por operación'],
+    ['Pérdida promedio', usd(a.rec.avgLoss), usd(a.base.avgLoss), a.base.avgLoss - a.rec.avgLoss, 'Más chica es mejor: el stop se está respetando'],
+    ['Peor pérdida', usd(a.rec.worstLoss), usd(a.base.worstLoss), a.base.worstLoss - a.rec.worstLoss, 'El techo del daño de una sola operación'],
+    ['Duración perdedoras', dur(a.rec.durLoss), dur(a.base.durLoss), a.base.durLoss - a.rec.durLoss, 'Cortar rápido lo que no funciona'],
+    ['Duración ganadoras', dur(a.rec.durWin), dur(a.base.durWin), a.rec.durWin - a.base.durWin, 'Dejar correr lo que sí funciona'],
+    ['Notional promedio', usd(a.rec.notional), usd(a.base.notional), 0, 'Tamaño de la apuesta'],
+    ['Liquidaciones', String(a.rec.liq), String(a.base.liq), a.base.liq - a.rec.liq, 'Cero es el único número aceptable']
+  ];
+  $('tAdh').innerHTML = '<thead><tr><th>Métrica</th><th>Últimas ' + a.rec.n + '</th><th>Anteriores ' + a.base.n +
+    '</th><th></th><th>Qué querés ver</th></tr></thead><tbody>' +
+    rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td class="mut">${r[2]}</td>
+      <td class="${r[3] > 0 ? 'up' : r[3] < 0 ? 'down' : 'mut'}">${r[3] > 0 ? '▲' : r[3] < 0 ? '▼' : '·'}</td>
+      <td class="mut d">${r[4]}</td></tr>`).join('') + '</tbody>';
+}
+
+function renderKpis(s) {
+  const k = [];
+  const push = (lab, val, c, note) => k.push(`<div class="kpi"><div class="lab">${lab}</div>
+    <div class="val ${c || ''}">${val}</div><div class="note">${note || ''}</div></div>`);
+  if (!s.n) { $('kpis').innerHTML = '<div class="kpi"><div class="lab">Sin datos</div><div class="val mut">—</div><div class="note">Ningún trade cerrado con estos filtros</div></div>'; return; }
+  push('PnL neto', usd(s.net), cls(s.net), `bruto ${usd(s.gross)}`);
+  push('Expectativa', usd(s.expectancy), cls(s.expectancy), 'por operación');
+  push('Win rate', pct(s.winRate), '', `${s.wins.length}G / ${s.losses.length}P`);
+  push('Payoff', isFinite(s.payoff) ? s.payoff.toFixed(2) + 'x' : '∞', s.payoff >= 1 ? 'up' : 'down', `gana ${usd0(s.avgWin)} / pierde ${usd0(s.avgLoss)}`);
+  push('Profit factor', isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞', s.profitFactor >= 1 ? 'up' : 'down', 'bruto ganado / perdido');
+  push('Costos', usd(-(s.fees - Math.min(s.funding, 0))), 'down', `fees ${usd0(s.fees)} · funding ${usd0(s.funding)}`);
+  push('Drawdown máx.', usd(-s.maxDD), 'down', `${s.maxLossStreak} pérdidas seguidas`);
+  push('Liquidaciones', String(s.liq.n), s.liq.n ? 'down' : 'up', s.liq.n ? `${usd(s.liq.net)} · sin ellas ${usd(s.net - s.liq.net)}` : 'ninguna');
+  push('Operaciones', String(s.n), '', `${usd0(s.volume)} de volumen`);
+  $('kpis').innerHTML = k.join('');
+}
+
+function renderInsights(s) {
+  const ins = buildInsights(s);
+  $('insights').innerHTML = ins.length
+    ? ins.map(i => `<div class="ins ${i.level}"><div class="t">${i.title}</div><div class="d">${i.text}</div></div>`).join('')
+    : '<div class="mut">Sin operaciones cerradas para analizar con estos filtros.</div>';
+}
+
+/* ===================== gráficos ===================== */
+const GRID = '#242d3a', TICK = '#7d8896';
+const SESCOL = { asia: '#8b7cf6', hueco: '#4b5568', pre: '#d8a640', rueda: '#58a6ff', after: '#e07a5f', finde: '#3a4356' };
+/* a qué sesión pertenece una hora de Buenos Aires, por dónde arranca */
+const sesDeHora = h => h <= 3 || h >= 21 ? 'asia' : h === 4 ? 'hueco'
+  : h <= 10 ? 'pre' : h <= 16 ? 'rueda' : 'after';
+
+/* Reloj de actividad: 24 h en círculo. Largo del gajo = cuántas operaciones,
+   color = si esa hora suma o resta. Los arcos de afuera son las sesiones. */
+function renderRelojAct(s) {
+  const S = 300, cx = S / 2, cy = S / 2, r0 = 58, esc = 46;
+  const maxN = Math.max(1, ...Object.values(s.byHour).map(v => v.n));
+  const ang = h => (h / 24) * Math.PI * 2 - Math.PI / 2;
+  const P = (a, r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  let o = '';
+  const ARCOS = [['asia', 21, 27.5], ['hueco', 3.5, 5], ['pre', 5, 10.5], ['rueda', 10.5, 17], ['after', 17, 21]];
+  for (const [id, de, a] of ARCOS) {
+    const R = r0 + 60, a1 = ang(de), a2 = ang(a);
+    const [x1, y1] = P(a1, R), [x2, y2] = P(a2, R);
+    o += `<path d="M${x1} ${y1} A${R} ${R} 0 ${(a - de) > 12 ? 1 : 0} 1 ${x2} ${y2}"
+      stroke="${SESCOL[id]}" stroke-width="7" fill="none" opacity=".85"><title>${SESSIONS[id].label}</title></path>`;
+  }
+  o += `<circle cx="${cx}" cy="${cy}" r="${r0}" fill="none" stroke="${GRID}" stroke-width="1.5"/>`;
+  for (let h = 0; h < 24; h++) {
+    const b = s.byHour[h]; if (!b || !b.n) continue;
+    const r1 = r0, r2 = r0 + (b.n / maxN) * esc;
+    const a1 = ang(h) + 0.014, a2 = ang(h + 1) - 0.014;
+    const [q1, q2] = P(a1, r1), [q3, q4] = P(a2, r1), [q5, q6] = P(a2, r2), [q7, q8] = P(a1, r2);
+    o += `<path d="M${q1} ${q2} A${r1} ${r1} 0 0 1 ${q3} ${q4} L${q5} ${q6} A${r2} ${r2} 0 0 0 ${q7} ${q8} Z"
+      fill="${b.net > 0 ? '#3fb950' : b.net < 0 ? '#f85149' : TICK}" opacity=".92">
+      <title>${String(h).padStart(2, '0')}:00 · ${b.n} operaciones · ${usd(b.net)}</title></path>`;
+  }
+  for (let h = 0; h < 24; h += 3) {
+    const [tx, ty] = P(ang(h + 0.5), r0 + 76);
+    o += `<text x="${tx}" y="${ty + 3}" font-size="9.5" fill="${TICK}" text-anchor="middle">${String(h).padStart(2, '0')}</text>`;
+  }
+  o += `<text x="${cx}" y="${cy + 4}" font-size="10" fill="${TICK}" text-anchor="middle">${s.n} operaciones</text>`;
+  $('relojAct').innerHTML = `<svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:300px;margin:0 auto;display:block">${o}</svg>`;
+}
+function chart(id, cfg) {
+  if (CHARTS[id]) CHARTS[id].destroy();
+  const base = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a212b', borderColor: GRID, borderWidth: 1 } },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { color: TICK, maxRotation: 0, autoSkipPadding: 18 } },
+      y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => '$' + v.toLocaleString('es-AR') } }
+    }
+  };
+  const o = cfg.options || {};
+  cfg.options = Object.assign({}, base, o, {
+    plugins: Object.assign({}, base.plugins, o.plugins || {}),
+    scales: Object.assign({}, base.scales, o.scales || {})
+  });
+  CHARTS[id] = new Chart($(id), cfg);
+}
+const barColors = arr => arr.map(v => v >= 0 ? '#3fb950' : '#f85149');
+
+function renderCharts(s, sel) {
+  if (!s.n) { Object.values(CHARTS).forEach(c => c.destroy()); CHARTS = {}; return; }
+
+  chart('cEquity', {
+    type: 'line',
+    data: {
+      labels: s.equity.map(p => new Date(p.time).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })),
+      datasets: [{
+        data: s.equity.map(p => p.cum), borderColor: s.net >= 0 ? '#3fb950' : '#f85149',
+        backgroundColor: (s.net >= 0 ? '#3fb95022' : '#f8514922'), fill: true, tension: .15,
+        pointRadius: 0, borderWidth: 2
+      }]
+    }
+  });
+
+  const cuenta = serieCuenta(RAW && RAW.portfolio);
+  $('cuentaPanel').classList.toggle('hide', cuenta.length < 2);
+  if (cuenta.length >= 2) {
+    chart('cCuenta', {
+      type: 'line',
+      data: {
+        labels: cuenta.map(p => new Date(p.time).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })),
+        datasets: [{ data: cuenta.map(p => p.v), borderColor: '#58a6ff', backgroundColor: '#58a6ff22',
+          fill: true, tension: .15, pointRadius: 0, borderWidth: 2 }]
+      }
+    });
+  }
+
+  const sess = Object.entries(s.bySession).sort((a, b) => b[1].net - a[1].net);
+  chart('cSess', {
+    type: 'bar',
+    data: {
+      labels: sess.map(x => SESSIONS[x[0]].label),
+      datasets: [{ data: sess.map(x => x[1].net), backgroundColor: barColors(sess.map(x => x[1].net)) }]
+    },
+    options: { plugins: { tooltip: { callbacks: {
+      afterLabel: c => `${SESSIONS[sess[c.dataIndex][0]].art} · ${sess[c.dataIndex][1].n} operaciones` } } } }
+  });
+
+  const syms = Object.entries(s.bySymbol).sort((a, b) => b[1].net - a[1].net).slice(0, 14);
+  chart('cSym', {
+    type: 'bar',
+    data: { labels: syms.map(x => x[0]), datasets: [{ data: syms.map(x => x[1].net), backgroundColor: barColors(syms.map(x => x[1].net)) }] }
+  });
+
+  /* el día arranca a las 21:00, que es cuando abre Asia: así ninguna sesión
+     queda cortada entre el principio y el final del eje */
+  const orden = Array.from({ length: 24 }, (_, i) => (21 + i) % 24);
+  const hv = orden.map(h => (s.byHour[h] || { net: 0 }).net);
+  chart('cHour', {
+    type: 'bar',
+    data: {
+      labels: orden.map(h => String(h).padStart(2, '0')),
+      datasets: [{ data: hv, backgroundColor: orden.map(h => SESCOL[sesDeHora(h)]) }]
+    },
+    options: { plugins: { tooltip: { callbacks: {
+      afterLabel: c => {
+        const h = orden[c.dataIndex], b = s.byHour[h];
+        return `${SESSIONS[sesDeHora(h)].label}${b ? ` · ${b.n} operaciones` : ''}`;
+      } } } } }
+  });
+  renderRelojAct(s);
+
+  const dOrder = ['< 5 min', '5-30 min', '30 min - 4 h', '4-24 h', '1-7 días', '> 7 días'].filter(k => s.byDur[k]);
+  chart('cDur', {
+    type: 'bar',
+    data: { labels: dOrder, datasets: [{ data: dOrder.map(k => s.byDur[k].net), backgroundColor: barColors(dOrder.map(k => s.byDur[k].net)) }] }
+  });
+
+  const nets = sel.filter(t => !t.open).map(t => t.net).sort((a, b) => a - b);
+  const lo = nets[0], hi = nets[nets.length - 1], NB = 16, w = (hi - lo) / NB || 1;
+  const bins = Array(NB).fill(0), mids = [];
+  for (let i = 0; i < NB; i++) mids.push(lo + w * (i + .5));
+  nets.forEach(v => bins[Math.min(NB - 1, Math.floor((v - lo) / w))]++);
+  chart('cDist', {
+    type: 'bar',
+    data: { labels: mids.map(m => usd0(m)), datasets: [{ data: bins, backgroundColor: barColors(mids) }] },
+    options: { scales: { x: { grid: { color: GRID }, ticks: { color: TICK, maxRotation: 0, autoSkipPadding: 12 } },
+      y: { grid: { color: GRID }, ticks: { color: TICK, precision: 0, callback: v => v } } } }
+  });
+}
+
+/* ===================== tablas ===================== */
+const TESIS = ['', 'Tendencia', 'Reversión', 'Ruptura', 'Noticia', 'Otro'];
+let ABIERTA = null;
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const COLS = [
+  ['entryTime', 'Entrada', t => fdate(t.entryTime)],
+  ['session', 'Sesión', t => `<span class="tag">${SESSIONS[t.session].label}</span>`],
+  ['symbol', 'Símbolo', t => `${t.symbol} <span class="tag ${t.side === 'long' ? 'up' : 'down'}">${t.side}</span>` +
+    (t.liquidated ? ' <span class="tag liq">LIQUIDADO</span>' : '')],
+  ['qty', 'Tamaño', t => t.qty.toLocaleString('es-AR', { maximumFractionDigits: 4 })],
+  ['notional', 'Notional', t => usd0(t.notional)],
+  ['avgEntry', 'Precio ent.', t => t.avgEntry.toLocaleString('es-AR', { maximumFractionDigits: 4 })],
+  ['avgExit', 'Precio sal.', t => t.avgExit == null ? '—' : t.avgExit.toLocaleString('es-AR', { maximumFractionDigits: 4 })],
+  ['durationMs', 'Duración', t => fdur(t.durationMs)],
+  ['fees', 'Fees', t => `<span class="down">${usd(-t.fees)}</span>`],
+  ['funding', 'Funding', t => `<span class="${cls(t.funding)}">${usd(t.funding)}</span>`],
+  ['net', 'PnL neto', t => `<span class="${cls(t.net)}">${usd(t.net)}</span>`],
+  ['retPct', 'Ret. s/ notional', t => `<span class="${cls(t.retPct)}">${t.retPct.toFixed(2)}%</span>`]
+];
+
+function renderTables(sel) {
+  const closed = sel.filter(t => !t.open);
+  const rows = closed.slice().sort((a, b) => {
+    const va = a[SORT.k], vb = b[SORT.k];
+    return (typeof va === 'string' ? va.localeCompare(vb) : (va || 0) - (vb || 0)) * SORT.dir;
+  });
+  const editor = t => {
+    const n = DATOS.notas[t.id] || {};
+    return `<tr class="ed"><td colspan="${COLS.length + 1}">
+      <div class="edrow">
+        <label class="campo">Tesis
+          <select data-f="tesis" data-id="${t.id}">${TESIS.map(x =>
+            `<option value="${x}"${(n.tesis || '') === x ? ' selected' : ''}>${x || '—'}</option>`).join('')}</select></label>
+        <label class="campo" style="flex:1">Etiquetas
+          <input data-f="tags" data-id="${t.id}" value="${esc((n.tags || []).join(', '))}" placeholder="separadas por coma"></label>
+      </div>
+      <textarea data-f="nota" data-id="${t.id}" rows="2" placeholder="Qué viste, qué esperabas, qué pasó">${esc(n.nota || '')}</textarea>
+    </td></tr>`;
+  };
+  $('tTrades').innerHTML =
+    '<thead><tr>' + COLS.map(c => `<th data-k="${c[0]}">${c[1]}${SORT.k === c[0] ? (SORT.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('') +
+    '<th class="nc">Nota</th></tr></thead><tbody>' +
+    rows.map(t => {
+      const n = DATOS.notas[t.id] || {};
+      const tiene = n.tesis || (n.tags || []).length || n.nota;
+      return '<tr>' + COLS.map(c => `<td>${c[2](t)}</td>`).join('') +
+        `<td class="nc"><button class="nota ${tiene ? 'on' : ''}" data-abrir="${t.id}">${tiene ? '●' : '✎'}</button></td></tr>` +
+        (ABIERTA === t.id ? editor(t) : '');
+    }).join('') + '</tbody>';
+
+  $('tTrades').querySelectorAll('th[data-k]').forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    SORT = { k, dir: SORT.k === k ? -SORT.dir : -1 };
+    renderTables(sel);
+  });
+  $('tTrades').querySelectorAll('[data-abrir]').forEach(b => b.onclick = () => {
+    ABIERTA = ABIERTA === b.dataset.abrir ? null : b.dataset.abrir;
+    renderTables(sel);
+  });
+  $('tTrades').querySelectorAll('[data-f]').forEach(el => {
+    const grabar = () => {
+      const id = el.dataset.id, f = el.dataset.f;
+      const n = DATOS.notas[id] || (DATOS.notas[id] = {});
+      n[f] = f === 'tags' ? el.value.split(',').map(x => x.trim()).filter(Boolean) : el.value;
+      if (!n.tesis && !(n.tags || []).length && !n.nota) delete DATOS.notas[id];
+      guardar();
+      aplicarNotas(TRADES);
+      marcaArchivo(HANDLE ? 'guardado' : 'local');
+    };
+    el.onchange = grabar;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.onblur = grabar;
+  });
+
+  const open = sel.filter(t => t.open);
+  $('openPanel').classList.toggle('hide', !open.length);
+  if (open.length) {
+    $('tOpen').innerHTML =
+      '<thead><tr><th>Abierta</th><th>Símbolo</th><th>Tamaño</th><th>Notional</th><th>Precio ent.</th><th>Fees</th><th>Funding</th></tr></thead><tbody>' +
+      open.map(t => `<tr><td>${fdate(t.entryTime)}</td>
+        <td>${t.symbol} <span class="tag ${t.side === 'long' ? 'up' : 'down'}">${t.side}</span></td>
+        <td>${(t.entrySz - t.exitSz).toLocaleString('es-AR', { maximumFractionDigits: 4 })}</td>
+        <td>${usd0(t.notional)}</td><td>${t.avgEntry.toLocaleString('es-AR', { maximumFractionDigits: 4 })}</td>
+        <td class="down">${usd(-t.fees)}</td><td class="${cls(t.funding)}">${usd(t.funding)}</td></tr>`).join('') +
+      '</tbody>';
+  }
+}
+
+function exportCsv() {
+  const rows = filtered().filter(t => !t.open);
+  /* fechas en hora local (Buenos Aires), no UTC: es la misma hora que ves en los gráficos */
+  const loc = ts => {
+    const d = new Date(ts), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+  const head = ['entrada_local', 'salida_local', 'sesion', 'dex', 'simbolo', 'lado', 'liquidado', 'tamano',
+    'precio_entrada', 'precio_salida', 'notional', 'duracion_min', 'pnl_bruto', 'fees', 'funding', 'pnl_neto', 'ret_pct'];
+  const lines = rows.map(t => [
+    loc(t.entryTime), loc(t.exitTime), SESSIONS[t.session].label, t.dex, t.symbol, t.side, t.liquidated ? 'SI' : '',
+    t.qty, t.avgEntry, t.avgExit, t.notional, (t.durationMs / 6e4).toFixed(1),
+    t.gross.toFixed(4), t.fees.toFixed(4), t.funding.toFixed(4), t.net.toFixed(4), t.retPct.toFixed(3)
+  ].join(','));
+  download(new Blob([head.join(',') + '\n' + lines.join('\n')], { type: 'text/csv' }), 'trades_trade_xyz.csv');
+}
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ===================== eventos ===================== */
+$('go').onclick = async () => {
+  const user = $('addr').value.trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(user)) return say('Esa no parece una dirección válida (0x + 40 caracteres hex).', true);
+  store.set('tradexyz_addr', user);
+  $('go').disabled = true; say('Conectando con Hyperliquid…');
+  try {
+    ingest(await pull(user));
+    envivo(true);   // a partir de acá se actualiza solo
+  } catch (e) {
+    say('No pude leer la API desde acá: ' + e.message, true);
+    $('hint').innerHTML = `Si el navegador bloqueó el pedido por CORS, abrí <code>app.trade.xyz</code>,
+      pegá el snippet de descarga en la consola (F12) y volvé acá con el botón <b>Cargar JSON</b>.`;
+  }
+  $('go').disabled = false;
+};
+$('loadBtn').onclick = () => $('file').click();
+$('file').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const j = JSON.parse(r.result);
+      ingest({ user: j.user || '', fills: j.fills || (Array.isArray(j) ? j : []), funding: j.funding || [], state: j.state || null, pulledAt: j.pulledAt || Date.now() });
+    } catch (err) { say('No pude leer ese archivo: ' + err.message, true); }
+  };
+  r.readAsText(f);
+};
+$('saveBtn').onclick = () => download(new Blob([JSON.stringify(RAW)], { type: 'application/json' }),
+  'trade_xyz_' + new Date().toISOString().slice(0, 10) + '.json');
+$('csv').onclick = exportCsv;
+$('fDex').onchange = () => { syncSyms(); render(); };
+['fSym', 'fSide', 'fFrom', 'fTo'].forEach(id => $(id).onchange = render);
+$('preset').onclick = e => { if (e.target.dataset && e.target.dataset.p) { setPreset(e.target.dataset.p); render(); } };
+/* ===== En vivo =====
+   Refresco incremental cada 20 s: solo pide los fills posteriores al último que ya tenemos,
+   más estado y órdenes. No rearma los filtros para no pisarte la selección. */
+let TIMER = null;
+async function refrescar() {
+  if (!RAW || !/^0x[0-9a-fA-F]{40}$/.test(RAW.user || '')) return;
+  const u = RAW.user;
+  try {
+    const desde = RAW.fills.length ? RAW.fills[RAW.fills.length - 1].time + 1 : 0;
+    const nf = await post({ type: 'userFillsByTime', user: u, startTime: desde, aggregateByTime: true });
+    if (Array.isArray(nf) && nf.length) {
+      const vistos = new Set(RAW.fills.map(f => f.tid));
+      RAW.fills = RAW.fills.concat(nf.filter(f => !vistos.has(f.tid)));
+    }
+    RAW.state = RAW.state || {}; RAW.orders = RAW.orders || {};
+    for (const dx of (RAW.dexes || [''])) {
+      const k = dx || 'hyperliquid';
+      try { const st = await post({ type: 'clearinghouseState', user: u, dex: dx }); if (st) RAW.state[k] = st; } catch (e) {}
+      try { const o = await post({ type: 'frontendOpenOrders', user: u, dex: dx }); if (Array.isArray(o)) RAW.orders[k] = o; } catch (e) {}
+    }
+    RAW.pulledAt = Date.now();
+    TRADES = buildTrades(RAW.fills);
+    attachFunding(TRADES, RAW.funding || []);
+    aplicarNotas(TRADES);
+    LIVE = flattenLive(RAW);
+    render();
+    $('vivo').innerHTML = `<span class="up">●</span> en vivo · ${new Date().toLocaleTimeString('es-AR')}`;
+  } catch (e) {
+    $('vivo').innerHTML = `<span class="down">●</span> sin conexión`;
+  }
+}
+function envivo(on) {
+  clearInterval(TIMER);
+  $('btnVivo').textContent = on ? '⏸ Pausar' : '▶ En vivo';
+  $('btnVivo').dataset.on = on ? '1' : '';
+  if (on) { refrescar(); TIMER = setInterval(refrescar, 20000); }
+  else $('vivo').textContent = 'pausado';
+}
+$('btnVivo').onclick = () => envivo(!$('btnVivo').dataset.on);
+['stopPct', 'riesgo'].forEach(id => $(id).oninput = () => { $(id).dataset.tocado = '1'; calcular(); });
+
+$('cierra').onclick = e => {
+  e.stopPropagation();
+  const id = $('tal').dataset.vozId, ms = +$('tal').dataset.vozMs || 6 * 36e5;
+  if (id) {
+    DATOS.callados = DATOS.callados || {};
+    for (const k in DATOS.callados) if (DATOS.callados[k] < Date.now()) delete DATOS.callados[k];
+    DATOS.callados[id] = Date.now() + ms;
+    guardar();
+  }
+  $('tal').classList.remove('habla');
+};
+/* Cada toque es una cosa distinta: algo para probar, algo que no estás mirando,
+   o algo del proceso. El índice se guarda, así que no te repite entre sesiones. */
+const TIPOS = { probar: ['ok', 'para probar'], mirar: ['info', 'no lo estás mirando'], proceso: ['seco', 'tu proceso'] };
+$('cuerpo').onclick = () => {
+  if (!TRADES.length) return;
+  const base = filtered(true), s = computeStats(base);
+  const pos = (LIVE && LIVE.pos.length) ? analyzePositions(LIVE.pos, LIVE.ord, s) : [];
+  const R = repertorio(s, pos, todayBySession(base));
+  if (!R.length) return;
+  DATOS.rep = ((DATOS.rep || 0) + 1) % R.length;
+  guardar();
+  const it = R[DATOS.rep];
+  const [tono, etiq] = TIPOS[it.tipo] || ['info', ''];
+  VOZ_BASE = null;
+  $('tal').className = 'tal ' + tono + ' habla';
+  $('tal').dataset.linea = it.linea;
+  $('dice').innerHTML = `<i class="et">${etiq}</i>${it.linea}` +
+    `<i class="mas">${DATOS.rep + 1} de ${R.length} · tocá de nuevo</i>`;
+};
+$('verMas').onclick = () => {
+  const oculto = $('detalle').classList.toggle('hide');
+  $('verMas').textContent = oculto ? 'Ver los números' : 'Ocultar los números';
+  if (!oculto) render();   // los gráficos necesitan el contenedor visible para dimensionarse
+};
+$('reset').onclick = () => { buildFilters(); render(); };
+$('addr').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+$('linkBtn').onclick = vincularArchivo;
+$('cambiar').onclick = () => { $('setup').classList.remove('compacto'); $('lema').classList.remove('hide'); $('addr').focus(); };
+
+const saved = store.get('tradexyz_addr');
+if (saved) $('addr').value = saved;
+cargarDatos();
+$('hint').innerHTML = `<b>Pegá la dirección de tu wallet</b> (la de Hyperliquid o trade.xyz) y apretá Analizar.<br>
+  Taladro lee tus operaciones de la blockchain: <b>no pide clave privada, no puede operar y no puede tocar tus fondos</b>.
+  Todo se procesa en tu navegador y no se envía a ningún servidor.<br>
+  Si el navegador bloquea el pedido a la API, usá <b>Cargar JSON</b>.`;
+</script>
+</body>
+</html>
