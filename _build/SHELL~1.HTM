@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talastrat — tu personal trainer de trading</title>
+<meta name="description" content="Tu personal trainer de trading. Lee tus operaciones de Hyperliquid y trade.xyz y mide lo que hacés, no lo que ganás. No pide clave privada.">
+<meta property="og:title" content="Talastrat">
+<meta property="og:description" content="Tu personal trainer de trading. Mira lo que hacés, no lo que ganás.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0a0d11">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0d11; --panel:#131820; --panel2:#1a212b; --line:#242d3a;
+    --txt:#e6edf3; --mut:#7d8896; --acc:#58a6ff; --up:#3fb950; --down:#f85149; --warn:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px 20px 64px}
+  h1{font-size:20px;margin:0 0 2px;letter-spacing:-.3px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,select,button{font:inherit;background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:7px;padding:8px 11px;outline:none}
+  input:focus,select:focus{border-color:var(--acc)}
+  input.addr{flex:1;min-width:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+  button{cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);color:#06121f;border-color:var(--acc);font-weight:600}
+  button.primary:hover{filter:brightness(1.1)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .status{font-size:13px;color:var(--mut);margin-top:10px;min-height:19px}
+  .status.err{color:var(--down)}
+  .hint{font-size:12px;color:var(--mut);margin-top:10px;line-height:1.6}
+  .hint code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px;margin-bottom:16px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .kpi .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .kpi .val{font-size:21px;font-weight:600;margin-top:5px;letter-spacing:-.5px}
+  .kpi .note{font-size:11px;color:var(--mut);margin-top:3px}
+  .up{color:var(--up)} .down{color:var(--down)} .mut{color:var(--mut)}
+  h2{font-size:14px;margin:0 0 13px;color:var(--txt);text-transform:uppercase;letter-spacing:.7px}
+  .ins{border-left:3px solid var(--mut);background:var(--panel2);border-radius:0 8px 8px 0;
+    padding:11px 14px;margin-bottom:9px}
+  .ins.bad{border-color:var(--down)} .ins.warn{border-color:var(--warn)}
+  .ins.good{border-color:var(--up)} .ins.info{border-color:var(--acc)}
+  .ins .t{font-weight:600;margin-bottom:3px}
+  .ins .d{color:#b3bdc9;font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  canvas{max-height:260px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--mut);font-weight:500;text-align:right;cursor:pointer;user-select:none;font-size:11px;
+    text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;background:var(--panel)}
+  th:hover{color:var(--acc)}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  .scroll{max-height:460px;overflow:auto}
+  .tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--panel2)}
+  .hide{display:none}
+  .tag.liq{background:#f8514922;color:var(--down);border:1px solid #f8514955;font-weight:600}
+  #resumen{margin-bottom:12px}
+  .r{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+     padding:16px 18px;margin-bottom:8px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .r .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;
+     min-width:78px;flex-shrink:0}
+  .r .big{font-size:26px;font-weight:600;letter-spacing:-.6px}
+  .r .sub{font-size:13px;color:var(--mut)}
+  .r.aviso{border-left:3px solid var(--warn);display:block}
+  .r.aviso.bad{border-left-color:var(--down)}
+  .r.aviso .t{font-weight:600;margin-bottom:2px}
+  .r.aviso .d{font-size:13px;color:#b3bdc9}
+  #verMas{width:100%;margin-bottom:16px;color:var(--mut)}
+  /* ---- Taladro flotante ---- */
+  .tal{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column;
+    align-items:flex-end;gap:9px;max-width:min(370px,calc(100vw - 40px))}
+  .globo{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 30px 13px 15px;
+    font-size:13.5px;line-height:1.55;box-shadow:0 10px 34px #000a;position:relative;display:none;color:#dbe3ec}
+  .tal.habla .globo{display:block;animation:aparece .18s ease-out}
+  @keyframes aparece{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .globo:after{content:"";position:absolute;right:40px;bottom:-7px;width:12px;height:12px;background:var(--panel);
+    border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+  .tal.alerta .globo{border-color:var(--down)} .tal.seco .globo{border-color:var(--warn)}
+  .tal.ok .globo{border-color:var(--up)}
+  .globo .et{display:block;font-style:normal;font-size:10px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--mut);margin-bottom:5px}
+  .globo .mas{display:block;font-style:normal;font-size:10.5px;color:var(--mut);margin-top:8px;
+    padding-top:7px;border-top:1px solid var(--line)}
+  .tal.ok .globo .et{color:var(--up)} .tal.info .globo .et{color:var(--acc)}
+  .tal.seco .globo .et{color:var(--warn)}
+  .cierra{position:absolute;top:5px;right:9px;color:var(--mut);cursor:pointer;font-style:normal;font-size:16px;line-height:1}
+  .cierra:hover{color:var(--txt)}
+  .cuerpo{background:var(--panel);border:1px solid var(--line);border-radius:20px;width:86px;height:66px;padding:0;
+    display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 22px #000a}
+  .tal.alerta .cuerpo{border-color:var(--down)} .tal.seco .cuerpo{border-color:var(--warn)}
+  .tal.ok .cuerpo{border-color:var(--up)}
+  .cuerpo svg{width:76px;height:56px;color:var(--mut);transition:color .3s;overflow:visible}
+  .tal.alerta .cuerpo svg{color:var(--down)} .tal.seco .cuerpo svg{color:var(--warn)}
+  .tal.ok .cuerpo svg{color:var(--up)}
+  .tal.enpos.silencio .cuerpo{border-color:var(--acc)}
+  .tal.enpos.silencio .cuerpo svg{color:var(--acc)}
+  .tal.enpos .bit{animation:gira .7s linear infinite}
+  .tal.info .globo,.tal.info .cuerpo{border-color:var(--acc)}
+  .tal.info .cuerpo svg{color:var(--acc)}
+  [data-tal]{cursor:help}
+  [data-tal]:hover{background:color-mix(in srgb, var(--acc) 7%, transparent);border-radius:8px}
+  /* crece cuando tiene algo que decir, y un poco más cuando está explicando algo */
+  .cuerpo{transition:transform .22s cubic-bezier(.3,1.4,.5,1), border-color .3s}
+  .tal.habla .cuerpo{transform:scale(1.14)}
+  .tal.info .cuerpo{transform:scale(1.2)}
+  .tal.habla .cuerpo svg{animation:vibra .11s linear infinite}
+  @keyframes vibra{0%,100%{transform:translate(0,0)}25%{transform:translate(.7px,-.7px)}75%{transform:translate(-.7px,.7px)}}
+  /* el brazo apunta a lo que estás mirando */
+  .brazo{transform-origin:12px 23px;transform:rotate(var(--ang,0deg));
+    transition:transform .32s cubic-bezier(.25,1.2,.4,1)}
+  /* ---- respiración: nunca queda quieto ---- */
+  .flota{animation:flota 4s ease-in-out infinite}
+  .ojos{transform-origin:30.5px 19.5px;animation:parpadeo 5.4s infinite}
+  @keyframes flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.4px)}}
+  @keyframes parpadeo{0%,92%,100%{transform:scaleY(1)}94.5%,96.5%{transform:scaleY(.1)}}
+
+  /* ---- ventana emergente, no toma de pantalla ---- */
+  .foco{position:fixed;inset:0;z-index:80;display:none;background:#04060a9e;backdrop-filter:blur(2px);
+    align-items:center;justify-content:center;padding:20px}
+  .foco.on{display:flex}
+  .fcaja{display:flex;gap:20px;align-items:center;max-width:580px;background:var(--panel);
+    border:1px solid var(--line);border-radius:16px;padding:20px 24px;box-shadow:0 24px 64px #000c;
+    animation:entra .26s cubic-bezier(.2,1.3,.4,1);cursor:pointer}
+  @keyframes entra{from{opacity:0;transform:translateY(12px) scale(.95)}to{opacity:1;transform:none}}
+  .fcaja svg{width:148px;height:auto;flex-shrink:0;color:var(--mut);overflow:visible}
+  .foco.alerta .fcaja{border-color:var(--down)} .foco.seco .fcaja{border-color:var(--warn)}
+  .foco.ok .fcaja{border-color:var(--up)} .foco.info .fcaja{border-color:var(--acc)}
+  .foco.alerta .fcaja svg{color:var(--down)} .foco.seco .fcaja svg{color:var(--warn)}
+  .foco.ok .fcaja svg{color:var(--up)} .foco.info .fcaja svg{color:var(--acc)}
+  .fcaja .bit{animation:gira .5s linear infinite}
+  .foco.alerta .fcaja .flota{animation:tiembla .34s ease-in-out infinite}
+  @keyframes tiembla{0%,100%{transform:translate(0,0) rotate(0)}
+    25%{transform:translate(-.9px,.5px) rotate(-1.3deg)}75%{transform:translate(.9px,-.5px) rotate(1.3deg)}}
+  .foco.ok .fcaja .flota{animation:saltito 2.8s ease-in-out infinite}
+  @keyframes saltito{0%,100%{transform:translateY(0)}38%{transform:translateY(-4.5px)}54%{transform:translateY(0)}}
+  .foco.seco .fcaja .ojos{animation-duration:3.2s}
+  .fet{font-size:10.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--mut);margin-bottom:7px}
+  .foco.ok .fet{color:var(--up)} .foco.info .fet{color:var(--acc)} .foco.seco .fet{color:var(--warn)}
+  .foco.alerta .fet{color:var(--down)}
+  .ftx{font-size:16.5px;line-height:1.5;letter-spacing:-.15px;color:var(--txt)}
+  #facc:not(:empty){margin-top:14px}
+  .fbtn{background:var(--acc);color:#06121f;border:none;border-radius:8px;padding:9px 16px;
+    font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .fbtn:hover{filter:brightness(1.1)}
+  .foco.ok .fbtn{background:var(--up)} .foco.seco .fbtn{background:var(--warn)}
+  .foco.alerta .fbtn{background:var(--down);color:#fff}
+  .fpie{font-size:11px;color:var(--mut);margin-top:14px}
+  .fpie b{color:var(--txt)}
+  @media(max-width:560px){.fcaja{flex-direction:column;text-align:center}.fcaja svg{width:104px}}
+  .tal.tiltmode .cuerpo{border-color:var(--down);animation:pulsa 1.7s ease-in-out infinite}
+  .tal.tiltmode .globo{border-color:var(--down)}
+  @keyframes pulsa{0%,100%{box-shadow:0 6px 22px #000a,0 0 0 0 #f8514955}
+    55%{box-shadow:0 6px 22px #000a,0 0 0 9px #f8514900}}
+  .tal.tiltmode .flota{animation:tiembla .4s ease-in-out infinite}
+  .bit{stroke-dasharray:2.5 2.5}
+  .tal.habla .bit{animation:gira .45s linear infinite}
+  @keyframes gira{to{stroke-dashoffset:-5}}
+  /* ---- hábitos ---- */
+  .hab{display:grid;grid-template-columns:1fr 120px 190px;gap:14px;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--line)}
+  .hab:last-child{border-bottom:0}
+  .hab .hn{font-weight:600;font-size:13.5px}
+  .hab .hn span{display:block;font-weight:400;font-size:11.5px;color:var(--mut);margin-top:2px}
+  .hab .hmid{display:flex;flex-direction:column;gap:6px}
+  .hab .dots{display:flex;gap:2px}
+  .hab .dots i{flex:1;height:9px;border-radius:2px;background:var(--panel2)}
+  .hab .dots i.s{background:var(--up)} .hab .dots i.n{background:var(--down);opacity:.75}
+  .hab .hb{height:5px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .hab .hb div{height:100%;background:var(--up);border-radius:4px;transition:width .4s}
+  .hab.roto .hb div{background:var(--warn)}
+  .hab .hv{font-size:12.5px;text-align:right;color:var(--mut)}
+  .hab .hv b{font-size:17px;color:var(--txt)}
+  .hab .hv span{display:block;font-size:11px;margin-top:1px}
+  .campo{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:7px}
+  .campo input{width:82px;color:var(--txt);font-size:14px}
+  .campo select,.campo input[data-f]{width:auto;color:var(--txt)}
+  td.nc,th.nc{text-align:center;width:44px}
+  .nota{background:transparent;border:1px solid var(--line);border-radius:6px;padding:2px 8px;
+    color:var(--mut);font-size:12px;line-height:1.4}
+  .nota:hover{border-color:var(--acc);color:var(--acc)}
+  .nota.on{color:var(--acc);border-color:var(--acc)}
+  tr.ed td{background:var(--panel2);padding:12px 14px}
+  .edrow{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:9px}
+  tr.ed textarea{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;
+    color:var(--txt);padding:8px 10px;font:inherit;font-size:12.5px;resize:vertical}
+  tr.ed textarea:focus{border-color:var(--acc);outline:none}
+  #archivo{font-size:12px}
+  .rf{display:grid;grid-template-columns:150px 1fr 48px;gap:12px;align-items:center;padding:6px 0}
+  .rf .rk{font-size:13px;color:#b3bdc9}
+  .rf .rb{height:12px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .rf .rb div{height:100%;background:linear-gradient(90deg,var(--warn),var(--down));border-radius:6px;transition:width .5s}
+  .rf .rp{font-size:14px;font-weight:600;text-align:right}
+  #presu{margin:12px 0 4px}
+  .pb{position:relative;height:14px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .pbf{height:100%;border-radius:7px;transition:width .5s}
+  .pbf.up{background:var(--up)} .pbf.warn{background:var(--warn)} .pbf.down{background:var(--down)}
+  .pbm{position:absolute;left:66%;top:-3px;bottom:-3px;width:2px;background:var(--txt);opacity:.55}
+  .pl{font-size:12.5px;color:#b3bdc9;margin-top:7px}
+  .ult{display:flex;align-items:flex-end;gap:5px;margin-top:9px}
+  .ult .k{font-size:10.5px;color:var(--mut);white-space:nowrap;padding-bottom:1px}
+  .ult .k:last-child{margin-left:4px}
+  .ult i{width:18px;border-radius:3px 3px 0 0;background:var(--mut);opacity:.9}
+  .ult i.bien{background:var(--up)} .ult i.alto{background:var(--down)} .ult i.bajo{background:var(--warn)}
+  @media(max-width:600px){.rf{grid-template-columns:110px 1fr 42px;gap:8px}.rf .rk{font-size:12px}}
+  /* el alta de wallet ocupa toda la pantalla una sola vez; después se hace una línea */
+  .chip{display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    color:var(--mut);background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:6px 13px}
+  #cambiar{display:none}
+  #setup.compacto{padding:9px 14px;margin-bottom:12px}
+  #setup.compacto .addr,#setup.compacto #go,#setup.compacto #loadBtn,
+  #setup.compacto #saveBtn,#setup.compacto #linkBtn,#setup.compacto #hint{display:none}
+  #setup.compacto .chip,#setup.compacto #cambiar{display:inline-flex}
+  #setup.compacto #status{margin:0;font-size:11.5px;opacity:.75}
+  #setup.compacto .row{gap:8px}
+  #calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0 4px}
+  #calc div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  #calc div span{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  #calc div b{font-size:19px;font-weight:600}
+  #calc div.mal{border-color:var(--down)}
+  #prepNotas div{font-size:12.5px;color:#b3bdc9;padding:4px 0 4px 17px;position:relative}
+  #prepNotas div:before{content:"·";position:absolute;left:5px;color:var(--acc);font-weight:700}
+  #vivo{font-size:12px}
+  /* ---- densidad: números en mono, filas finas, cero aire de más ---- */
+  /* En tilt cambia la pantalla entera: es el momento donde se pierde todo,
+     así que tiene que sentirse distinto y no como un cartel más. */
+  body.tiltpage::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:70;
+    background:radial-gradient(120% 90% at 50% 50%, transparent 38%, rgba(229,72,77,calc(.05 + var(--tf,0) * .13)) 100%);
+    animation:latido 3.4s ease-in-out infinite}
+  @keyframes latido{0%,100%{opacity:.75}50%{opacity:1}}
+  body.tiltpage{--tf:.5}
+  /* la plata se difumina: no se puede correr atrás de lo que no ves */
+  body.tiltpage .plata{filter:blur(9px);opacity:.55;transition:filter .3s,opacity .3s;user-select:none}
+  body.tiltpage.destapado .plata{filter:none;opacity:1}
+  .barra{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;gap:14px;
+    background:#0d1117f2;backdrop-filter:blur(8px);border:0;border-bottom:1px solid var(--line);
+    padding:8px 20px;transform:translateY(-102%);transition:transform .22s ease;cursor:pointer;
+    font:inherit;color:var(--mut);text-align:left}
+  .barra.ver{transform:none}
+  .barra:hover{background:#111823f5}
+  .minilogo{flex-shrink:0;display:block}
+  .bsep{width:1px;height:18px;background:var(--line)}
+  #bctx{font-size:12.5px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;min-width:0}
+  #bctx b{color:var(--txt)}
+  .bup{margin-left:auto;font-size:11px;opacity:.55;white-space:nowrap}
+  .barra:hover .bup{opacity:1;color:var(--acc)}
+  @media(max-width:600px){.barra{gap:9px;padding:7px 13px}.bsep{display:none}#bctx{font-size:11.5px}}
+  .marca{margin:0 0 6px;line-height:0}
+  .logo{display:block;height:48px;width:auto;max-width:100%}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;
+    letter-spacing:-.02em}
+  .franja{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:10px;background:var(--panel)}
+  .franja .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:11px 15px 0}
+  .franja .nom{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.1px}
+  .franja .hs{font-size:11.5px;color:var(--mut)}
+  .franja .rank{margin-left:auto;font-size:11px;padding:2px 9px;border-radius:20px;
+    background:var(--panel2);border:1px solid var(--line)}
+  .franja .cifras{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;padding:4px 15px 12px}
+  .franja .big{font-size:40px;font-weight:650;line-height:1}
+  .franja .sub{font-size:12.5px;color:var(--mut)}
+  .franja .sub b{color:var(--txt);font-weight:600}
+  .tramo{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;padding:0 15px 11px;font-size:12px;color:var(--mut)}
+  .tramo .tn{font-weight:650;color:var(--txt);font-size:12.5px}
+  .tramo .tv{font-weight:650;font-size:13px}
+  .franja .barra{height:4px;background:var(--panel2);position:relative}
+  .franja .barra i{position:absolute;inset:0 auto 0 0;background:var(--acc);opacity:.55}
+  .franja .pie{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--mut);
+    padding:7px 15px;border-top:1px solid var(--line);background:var(--panel2)}
+  .franja.mala{border-color:#f8514955} .franja.mala .nom{color:var(--down)}
+  .franja.buena{border-color:#3fb95055} .franja.buena .nom{color:var(--up)}
+  .tira{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:10px;
+    background:var(--panel)}
+  .tira > div{flex:1;padding:9px 13px;border-right:1px solid var(--line);min-width:0}
+  .tira > div:last-child{border-right:0}
+  .tira .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--mut);white-space:nowrap}
+  .tira .v{font-size:17px;font-weight:650;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tira .n{font-size:10.5px;color:var(--mut);margin-top:1px}
+  @media(max-width:620px){.tira{flex-wrap:wrap}.tira > div{flex:1 1 46%}}
+  .rel{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--mut);
+    padding:9px 14px;background:var(--panel);border:1px solid var(--line);border-radius:9px;margin-bottom:10px}
+  .rel b{color:var(--txt);font-weight:600}
+  .rel .ev{color:var(--warn);border-left:1px solid var(--line);padding-left:10px}
+  .rel .ev b{color:var(--warn)}
+  .rel .vt{background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 10px;font-size:11px}
+  #tiltPanel{border-color:var(--down);box-shadow:0 0 0 1px #f8514933 inset}
+  #tiltPanel h2{color:var(--down)}
+  .tq{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin:12px 0 7px}
+  .tm{font-size:13.5px;color:#e6c3c6;padding:7px 12px;background:#f8514914;border-left:3px solid var(--down);
+    border-radius:0 7px 7px 0;margin-bottom:6px}
+  .tsal{font-size:13.5px;line-height:1.55;color:#b9c3d0}
+  .tspec{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+  .tspec div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+  .tspec span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);margin-bottom:3px}
+  .tspec b{font-size:15px}
+  .tdest{margin-top:14px;font-size:12px;color:var(--mut);background:transparent;border:1px solid var(--line)}
+  .tdest:hover{border-color:var(--acc);color:var(--txt)}
+  .tbar{height:8px;background:var(--panel2);border-radius:5px;overflow:hidden;margin:11px 0 5px}
+  .tbar i{display:block;height:100%;background:var(--up);border-radius:5px;transition:width .5s}
+  .tp{font-size:11.5px;color:var(--mut)}
+  .enp{font-size:38px;font-weight:650;letter-spacing:-1.2px;margin:10px 0 14px;line-height:1}
+  .enp span{display:block;font-size:13px;font-weight:400;color:var(--mut);letter-spacing:0;margin-top:6px}
+  .pblk{margin-bottom:12px}
+  .pblk .ph{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;font-size:14px;font-weight:600}
+  .pblk .ph b{margin-left:auto;font-size:15px}
+  .eng{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin-bottom:14px}
+  .eng div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:14px}
+  .eng div span{display:block;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+  .anc{font-size:13px;line-height:1.55;padding:9px 12px;border-left:3px solid var(--line);
+    background:var(--panel2);border-radius:0 8px 8px 0;margin-bottom:7px;color:#b9c3d0}
+  .anc.good{border-color:var(--up)} .anc.warn{border-color:var(--warn)}
+  .anc.bad{border-color:var(--down)} .anc.info{border-color:var(--acc)}
+  .mej{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:0 10px 10px 0;padding:13px 15px;margin:12px 0 4px}
+  .mej .mt{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .mej .mb{font-size:17px;font-weight:600;margin:5px 0 6px;letter-spacing:-.2px}
+  .mej .mn{font-size:12.5px;color:#b3bdc9}
+  .mej .mu{font-size:12px;color:var(--mut);margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
+  .mej.n2{border-left-color:var(--warn)} .mej.n3{border-left-color:var(--down)}
+  .mej.n3 .mt{color:var(--down)}
+  .mej .mv{font-size:12.5px;margin-top:9px;padding:7px 10px;border-radius:7px;background:var(--panel)}
+  .mej .mv.ok{color:var(--up)} .mej .mv.no{color:var(--warn)}
+  .mej .fbtn{margin-top:11px}
+  @media(max-width:700px){.hab{grid-template-columns:1fr;gap:6px}.hab .hv{text-align:left}}
+  #rules{margin-top:14px;border-top:1px solid var(--line);padding-top:13px}
+  #rules div{color:#b3bdc9;font-size:13px;padding:4px 0 4px 18px;position:relative}
+  #rules div:before{content:"→";position:absolute;left:0;color:var(--acc)}
+  #sessNow b{color:var(--acc)}
+  #tAdh td.d{font-size:11px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{border:0;border-radius:0;background:var(--panel2);padding:8px 14px}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--acc);color:#06121f;font-weight:600}
+  #sessStrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;margin:14px 0}
+  .ss{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .ss.now{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .ss .n{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .ss .h{font-size:11px;color:var(--mut);margin-top:1px}
+  .ss .v{font-size:15px;font-weight:600;margin-top:4px}
+  .pos{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:10px}
+  .pos .hd{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px}
+  .pos .hd .sym{font-size:16px;font-weight:600}
+  .pos .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:8px 14px;margin-bottom:9px}
+  .pos .g div span{display:block;font-size:11px;color:var(--mut)}
+  .pos .a{font-size:12.5px;padding:3px 0 3px 16px;position:relative;color:#b3bdc9}
+  .pos .a:before{content:"●";position:absolute;left:0;font-size:9px;top:5px}
+  .pos .a.bad:before{color:var(--down)} .pos .a.warn:before{color:var(--warn)}
+  .pos .a.good:before{color:var(--up)} .pos .a.info:before{color:var(--acc)}
+  .foot{color:var(--mut);font-size:12px;margin-top:26px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<!-- barra fija: aparece al bajar, el logo vuelve al tope y de paso lleva el contexto encima -->
+<button id="barra" class="barra" title="Volver arriba">
+  <svg class="minilogo" width="112" height="24" viewBox="0 0 252 52" aria-hidden="true">
+    <circle cx="26" cy="26" r="19" fill="none" stroke="#3fb950" stroke-width="2.4"/>
+    <g transform="translate(16.4 19.2) scale(.62)" fill="none" stroke="#3fb950"
+       stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="0" y="0" width="19" height="14" rx="6"/>
+      <path d="M5 14 L4 22 h7 L13 14"/><path d="M19 4.5 h4 v5 h-4"/>
+      <path d="M23 7 H31" stroke-dasharray="2.4 2.4"/>
+    </g>
+    <text x="58" y="33" fill="#e6edf3" font-size="24" font-weight="700"
+          font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif">Talastrat</text>
+  </svg>
+  <span class="bsep"></span>
+  <span id="bctx"></span>
+  <span class="bup">▲ arriba</span>
+</button>
+
+<div class="wrap">
+
+  <h1 class="marca">
+    <!-- el logotipo lleva todo por atributo: si algún día falla el CSS, igual se ve bien -->
+    <svg class="logo" width="234" height="48" viewBox="0 0 252 52"
+         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Talastrat">
+      <circle cx="26" cy="26" r="19" fill="none" stroke="#3fb950" stroke-width="2.4"/>
+      <g transform="translate(16.4 19.2) scale(.62)" fill="none" stroke="#3fb950"
+         stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="0" y="0" width="19" height="14" rx="6"/>
+        <path d="M5 14 L4 22 h7 L13 14"/>
+        <path d="M19 4.5 h4 v5 h-4"/>
+        <path d="M23 7 H31" stroke-dasharray="2.4 2.4"/>
+      </g>
+      <text x="58" y="25" fill="#e6edf3" font-size="21" font-weight="700" letter-spacing=".3"
+            font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">Talastrat</text>
+      <text x="59" y="39" fill="#7d8896" font-size="8.8" letter-spacing="1.4"
+            font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">PERSONAL TRAINER DE TRADING</text>
+    </svg>
+  </h1>
+  <div class="sub" id="lema">Mira lo que hacés, no lo que ganás: sostiene lo que ya te sale bien y te avisa
+    antes de las que se pagan caro. Nada de consejos de mercado.</div>
+
+  <div class="panel" id="setup">
+    <div class="row">
+      <span class="chip" id="chip"></span>
+      <input class="addr" id="addr" placeholder="0x… dirección de la wallet" spellcheck="false">
+      <button class="primary" id="go">Analizar</button>
+      <button id="cambiar">Cambiar wallet</button>
+      <button id="btnVivo" disabled>▶ En vivo</button>
+      <button id="loadBtn">Cargar JSON</button>
+      <button id="saveBtn" disabled>Guardar copia</button>
+      <button id="linkBtn">Vincular archivo</button>
+      <span class="mut" id="vivo"></span>
+      <span class="mut" id="archivo"></span>
+      <input type="file" id="file" accept=".json" class="hide">
+    </div>
+    <div class="status" id="status"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div id="app" class="hide">
+
+    <div id="franja"></div>
+    <div id="resumen"></div>
+
+    <div class="panel hide" id="tiltPanel">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">Modo tilt</h2>
+        <span class="mut" id="tiltRacha"></span>
+      </div>
+      <div id="tiltQue"></div>
+      <div id="tiltSpec"></div>
+      <div id="tiltSalida"></div>
+      <button id="destapar" class="tdest">Mostrar los números igual</button>
+      <div class="hint">Una racha perdedora sola no activa esto: con tu acierto, rachas largas son
+        estadísticamente normales. Lo que lo activa es la racha más señales de que el proceso se rompió.</div>
+    </div>
+
+    <div class="panel hide" id="enTrade">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">En posición</h2>
+        <span class="mut" id="enTiempo"></span>
+      </div>
+      <div id="enPnl"></div>
+      <div id="enDatos"></div>
+      <div id="enAncla"></div>
+    </div>
+
+    <div class="panel hide" id="prepPanel">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">La próxima</h2>
+        <span class="mut" id="prepSes"></span>
+      </div>
+      <div id="mejorar"></div>
+      <div class="row" style="margin-top:12px">
+        <label class="campo">Stop planeado <input id="stopPct" type="number" step="0.05" min="0.05" value="1"> %</label>
+        <label class="campo">Riesgo máximo <input id="riesgo" type="number" step="0.01" min="0.01"> USD</label>
+      </div>
+      <div id="calc"></div>
+      <div id="presu"></div>
+      <div id="prepNotas"></div>
+    </div>
+
+    <button id="verMas">Ver los números</button>
+
+    <div id="detalle" class="hide">
+    <div class="panel">
+      <div class="row">
+        <span class="seg" id="preset">
+          <button data-p="hoy" class="on">Hoy</button><button data-p="7d">7 días</button><button data-p="all">Todo</button>
+        </span>
+        <select id="fDex"></select>
+        <select id="fSym"></select>
+        <select id="fSide">
+          <option value="">Long y short</option><option value="long">Solo long</option><option value="short">Solo short</option>
+        </select>
+        <input type="date" id="fFrom"><input type="date" id="fTo">
+        <button id="reset">Limpiar filtros</button>
+        <span class="mut" id="count"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="dayPanel">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">Preparación del día</h2>
+        <span class="mut" id="sessNow"></span>
+      </div>
+      <div id="sessStrip"></div>
+      <div id="livePos"></div>
+      <div id="alerts"></div>
+      <div id="rules"></div>
+    </div>
+
+    <div class="panel" id="habPanel">
+      <h2>Hábitos</h2>
+      <div id="habitos"></div>
+      <div class="hint">Acciones que dependieron de vos. El resultado no entra: se puede perder plata
+        con la técnica impecable y ganarla haciendo cualquier cosa.</div>
+    </div>
+
+    <div class="panel" id="rachaPanel">
+      <h2>Rachas: qué es normal</h2>
+      <div id="rachas"></div>
+      <div class="hint" id="rachaPie"></div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="panel" id="adhPanel">
+      <h2>Adherencia técnica — últimas 20 contra todo lo anterior</h2>
+      <table id="tAdh"></table>
+      <div class="hint">Las flechas marcan en qué dirección se movió cada métrica entre los dos períodos.</div>
+    </div>
+
+    <div class="panel" id="mitPanel">
+      <h2>Primera mitad contra segunda mitad</h2>
+      <table id="tMit"></table>
+      <div class="hint">Tu muestra partida al medio por fecha. Si un número cambia mucho entre las dos mitades,
+        lo que estás midiendo es tu época y no tu método.</div>
+    </div>
+
+    <div class="panel" id="compPanel">
+      <h2>Qué rindió cada contexto</h2>
+      <table id="tComp"></table>
+      <div class="hint">Promedio por operación de cada grupo contra el resto. <b>Estable</b> significa que la
+        diferencia aparece en las dos mitades de tu historial; si no, probablemente describa una época y no el contexto.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Qué dicen tus datos — historial completo</h2>
+      <div id="insights"></div>
+    </div>
+
+    <div class="panel">
+      <h2>PnL acumulado neto</h2>
+      <canvas id="cEquity"></canvas>
+    </div>
+
+    <div class="panel" id="cuentaPanel">
+      <h2>Valor de la cuenta</h2>
+      <canvas id="cCuenta"></canvas>
+      <div class="hint">Serie real que informa el exchange. A diferencia del PnL acumulado, incluye
+        depósitos y retiros: es lo que efectivamente tuviste en la cuenta.</div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><h2>Resultado por sesión</h2><canvas id="cSess"></canvas></div>
+      <div class="panel"><h2>Resultado por símbolo</h2><canvas id="cSym"></canvas></div>
+      <div class="panel">
+        <h2>Resultado por hora de entrada</h2>
+        <canvas id="cHour"></canvas>
+        <div class="hint">El eje arranca a las 21:00, cuando abre Asia, para que ninguna sesión quede
+          partida entre los dos extremos. Color por sesión.</div>
+      </div>
+      <div class="panel">
+        <h2>Cuándo operás</h2>
+        <div id="relojAct"></div>
+        <div class="hint">Veinticuatro horas en círculo, hora de Buenos Aires. El largo de cada gajo es
+          cuántas operaciones hiciste en esa hora y el color si esa hora te suma o te resta.</div>
+      </div>
+      <div class="panel"><h2>Resultado por duración</h2><canvas id="cDur"></canvas></div>
+      <div class="panel"><h2>Distribución de resultados</h2><canvas id="cDist"></canvas></div>
+    </div>
+
+    <div class="panel" id="openPanel">
+      <h2>Posiciones abiertas</h2>
+      <div class="scroll"><table id="tOpen"></table></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Operaciones</h2>
+        <button id="csv">Exportar CSV</button>
+      </div>
+      <div class="scroll" style="margin-top:12px"><table id="tTrades"></table></div>
+    </div>
+
+    <div class="foot">
+      Los datos salen de la API pública de Hyperliquid (<code>userFillsByTime</code>, <code>userFunding</code>)
+      para la dirección que cargues. Todo se procesa en tu navegador: nada se envía a ningún servidor.
+      El PnL bruto es el <code>closedPnl</code> que reporta el exchange; el neto le resta fees y le suma o resta el funding
+      atribuido a la ventana de cada trade. Los trades se arman de posición plana a posición plana, así que un
+      scale-in cuenta como una sola operación. Las liquidaciones se detectan por el campo <code>liquidation</code> del fill,
+      no por <code>dir</code>, que dice "Close" igual que un cierre voluntario. Las sesiones se clasifican por el reloj del
+      subyacente en Nueva York y se muestran en hora de Buenos Aires; todas las horas de esta página, incluido el CSV,
+      son locales. Esto es un registro de lo que hiciste, no asesoramiento financiero.
+      <div style="margin-top:10px;opacity:.5">Versión <span class="mono">__BUILD__</span></div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<div id="tal" class="tal silencio">
+  <div class="globo"><i class="cierra" id="cierra">×</i><span id="dice"></span></div>
+  <button class="cuerpo" id="cuerpo" title="Taladro · tocá para que te diga otra cosa"></button>
+</div>
+
+<div class="foco" id="foco">
+  <div class="fcaja">
+    <div id="fsvg"></div>
+    <div class="ftexto">
+      <div class="fet" id="fet"></div>
+      <div class="ftx" id="ftx"></div>
+      <div id="facc"></div>
+      <div class="fpie" id="fpie"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*__ENGINE__*/
+
+/* ===================== estado y utilidades ===================== */
+const API = 'https://api.hyperliquid.xyz/info';
+let RAW = null, TRADES = [], LIVE = null, CHARTS = {}, SORT = { k: 'entryTime', dir: -1 };
+const $ = id => document.getElementById(id);
+const usd = x => (x < 0 ? '-' : '') + '$' + Math.abs(x).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const usd0 = x => (x < 0 ? '-' : '') + '$' + Math.abs(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+const pct = x => (x * 100).toFixed(1) + '%';
+const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : 'mut';
+const fdate = t => new Date(t).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+const fdur = ms => { if (!ms) return '—'; const m = ms / 6e4; return m < 60 ? m.toFixed(0) + ' min' : m < 1440 ? (m / 60).toFixed(1) + ' h' : (m / 1440).toFixed(1) + ' d'; };
+const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+                set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+function say(msg, err) { $('status').textContent = msg; $('status').className = 'status' + (err ? ' err' : ''); }
+
+/* ===== Persistencia =====
+   Sin esto las rachas no existen: cada recarga volvería a cero. Guardamos en IndexedDB
+   (con localStorage de red) y, si el navegador lo permite, también en un archivo tuyo. */
+const DB = (() => {
+  let db, listo;
+  const abrir = () => listo || (listo = new Promise(res => {
+    try {
+      const r = indexedDB.open('taladro', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(db = r.result);
+      r.onerror = () => res(null);
+    } catch (e) { res(null); }
+  }));
+  return {
+    async get(k) {
+      const d = await abrir();
+      if (!d) { try { return JSON.parse(localStorage.getItem('taladro_' + k)); } catch (e) { return null; } }
+      return new Promise(res => { const q = d.transaction('kv', 'readonly').objectStore('kv').get(k);
+        q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+    },
+    async set(k, v) {
+      const d = await abrir();
+      if (!d) { try { localStorage.setItem('taladro_' + k, JSON.stringify(v)); } catch (e) {} return; }
+      return new Promise(res => { const q = d.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+        q.onsuccess = () => res(true); q.onerror = () => res(false); });
+    }
+  };
+})();
+
+let DATOS = { addr: '', notas: {}, hitos: {}, v: 1 };
+let HANDLE = null, guardarTimer = null;
+
+async function cargarDatos() {
+  const d = await DB.get('datos');
+  if (d && typeof d === 'object') DATOS = Object.assign(DATOS, d);
+  HANDLE = await DB.get('archivo');
+  if (HANDLE) marcaArchivo('vinculado');
+  if (DATOS.addr && !$('addr').value) $('addr').value = DATOS.addr;
+  $('verMas').textContent = tapa(DATOS.tapa)[$('detalle').classList.contains('hide') ? 0 : 1];
+}
+
+function guardar() {
+  clearTimeout(guardarTimer);
+  guardarTimer = setTimeout(async () => {
+    await DB.set('datos', DATOS);
+    await escribirArchivo();
+    marcaArchivo(HANDLE ? 'guardado' : 'local');
+  }, 400);
+}
+
+const FSA = typeof window !== 'undefined' && !!window.showSaveFilePicker;
+function marcaArchivo(estado) {
+  const t = { vinculado: 'archivo vinculado', guardado: 'guardado en tu archivo',
+    local: 'guardado en este navegador', error: 'no pude escribir el archivo' }[estado] || '';
+  const el = $('archivo'); if (el) el.textContent = t;
+}
+async function permiso(h, modo) {
+  try { const o = { mode: modo }; let p = await h.queryPermission(o); if (p === 'granted') return p;
+    return await h.requestPermission(o); } catch (e) { return 'denied'; }
+}
+async function escribirArchivo() {
+  if (!HANDLE) return;
+  try {
+    if (await permiso(HANDLE, 'readwrite') !== 'granted') return marcaArchivo('error');
+    const w = await HANDLE.createWritable();
+    await w.write(JSON.stringify(DATOS, null, 2));
+    await w.close();
+  } catch (e) { marcaArchivo('error'); }
+}
+async function vincularArchivo() {
+  if (!FSA) return say('Tu navegador no permite vincular un archivo. Los datos igual quedan guardados acá.', true);
+  try {
+    HANDLE = await window.showSaveFilePicker({ suggestedName: 'taladro-datos.json',
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+    await DB.set('archivo', HANDLE);
+    await escribirArchivo();
+    marcaArchivo('guardado');
+  } catch (e) { if (e.name !== 'AbortError') marcaArchivo('error'); }
+}
+
+/* Pega las notas guardadas sobre los trades reconstruidos. */
+function aplicarNotas(trades) {
+  for (const t of trades) {
+    const n = DATOS.notas[t.id];
+    if (n) { t.tesis = n.tesis || null; t.tags = n.tags || []; t.nota = n.nota || ''; }
+    else { t.tesis = null; t.tags = []; t.nota = ''; }
+  }
+}
+
+/* ===================== descarga de datos ===================== */
+async function post(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' de la API de Hyperliquid');
+  return r.json();
+}
+
+async function pull(user) {
+  const fills = [];
+  let t = 0, page = 0;
+  while (page < 60) {
+    const chunk = await post({ type: 'userFillsByTime', user, startTime: t, aggregateByTime: true });
+    if (!Array.isArray(chunk) || !chunk.length) break;
+    fills.push(...chunk);
+    say(`Descargando fills… ${fills.length}`);
+    if (chunk.length < 2000) break;
+    t = chunk[chunk.length - 1].time + 1;
+    page++;
+  }
+  say('Descargando funding…');
+  let funding = [];
+  try {
+    let ft = fills.length ? fills[0].time - 864e5 : Date.now() - 365 * 864e5, fp = 0;
+    while (fp < 30) {
+      const c = await post({ type: 'userFunding', user, startTime: ft });
+      if (!Array.isArray(c) || !c.length) break;
+      funding.push(...c);
+      if (c.length < 500) break;
+      ft = c[c.length - 1].time + 1; fp++;
+    }
+  } catch (e) { /* el funding es opcional */ }
+
+  /* Estado y órdenes abiertas.
+     Para los perps HIP-3 hay que pedirlos con el parámetro `dex`: sin él la API
+     devuelve la cuenta nativa de Hyperliquid, que en esta wallet viene vacía. */
+  const dexes = [...new Set((fills || []).map(f => f.coin.includes(':') ? f.coin.split(':')[0] : ''))];
+  if (!dexes.includes('')) dexes.push('');
+  const state = {}, orders = {}, diag = [];
+  const useful = st => !!st && (
+    (Array.isArray(st.assetPositions) && st.assetPositions.length > 0) ||
+    +((st.marginSummary || {}).accountValue || 0) > 0);
+
+  for (const dx of dexes) {
+    const key = dx || 'hyperliquid';
+    say(`Leyendo estado${dx ? ' en ' + dx : ''}…`);
+    // No hay una sola forma documentada de pedir el estado de un dex HIP-3:
+    // probamos las variantes conocidas y nos quedamos con la que devuelva algo.
+    const cands = [
+      ['clearinghouseState+dex', { type: 'clearinghouseState', user, dex: dx }],
+      ['perpDexClearinghouseState', { type: 'perpDexClearinghouseState', user, dex: dx }],
+      ['webData2', { type: 'webData2', user }]
+    ];
+    for (const [label, body] of cands) {
+      let r = null;
+      try { r = await post(body); } catch (e) { diag.push(`${key}/${label}: error`); continue; }
+      const st = r && r.clearinghouseState ? r.clearinghouseState : r;
+      diag.push(`${key}/${label}: ${useful(st) ? 'OK' : 'vacío'}`);
+      if (!state[key] || useful(st)) { state[key] = st; state[key].__source = label; }
+      if (r && Array.isArray(r.openOrders) && r.openOrders.length && !(orders[key] || []).length) orders[key] = r.openOrders;
+      if (useful(st)) break;
+    }
+    try {
+      const o = await post({ type: 'frontendOpenOrders', user, dex: dx });
+      if (Array.isArray(o) && (o.length || !(orders[key] || []).length)) orders[key] = o;
+    } catch (e) {}
+  }
+  // curva real de valor de cuenta: incluye depósitos y retiros
+  const portfolio = {};
+  for (const dx of dexes) {
+    try { const pf = await post({ type: 'portfolio', user, dex: dx }); if (pf) portfolio[dx || 'hyperliquid'] = pf; } catch (e) {}
+  }
+  return { user, fills, funding, state, orders, portfolio, dexes, diag, pulledAt: Date.now() };
+}
+
+/* Aplana el estado por dex a listas únicas de posiciones y órdenes. */
+function flattenLive(raw) {
+  const st = raw.state, or = raw.orders;
+  // acepta tanto el formato viejo (un solo clearinghouseState) como el nuevo (mapa por dex)
+  const states = !st ? [] : (st.marginSummary || st.assetPositions ? [st] : Object.values(st).filter(Boolean));
+  const orderLists = !or ? [] : (Array.isArray(or) ? [or] : Object.values(or).filter(Array.isArray));
+  const pos = [], ord = [];
+  let equity = 0;
+  for (const s of states) {
+    if (Array.isArray(s.assetPositions)) pos.push(...s.assetPositions);
+    if (s.marginSummary) equity += +(s.marginSummary.accountValue || 0);
+  }
+  for (const l of orderLists) ord.push(...l);
+  return { pos, ord, equity };
+}
+
+/* ===================== render ===================== */
+function ingest(raw) {
+  RAW = raw;
+  $('addr').value = raw.user || $('addr').value;
+  TRADES = buildTrades(raw.fills || []);
+  attachFunding(TRADES, raw.funding || []);
+  aplicarNotas(TRADES);
+  LIVE = flattenLive(raw);
+  if (raw.user) { DATOS.addr = raw.user; guardar(); }
+  if (!TRADES.length) { say('La wallet no tiene fills en HyperCore. ¿Es la dirección correcta?', true); return; }
+  $('app').classList.remove('hide');
+  $('saveBtn').disabled = false;
+  $('btnVivo').disabled = false;
+  // a partir de acá el alta ya cumplió su función: se hace una línea
+  const a = raw.user || $('addr').value;
+  $('chip').textContent = a.slice(0, 8) + '…' + a.slice(-4);
+  $('setup').classList.add('compacto');
+  $('lema').classList.add('hide');
+  buildFilters();
+  render();
+  const cerrados = TRADES.filter(t => !t.open).length;
+  say(`${raw.fills.length} fills → ${TRADES.length} operaciones (${cerrados} cerradas) · ${new Date(raw.pulledAt).toLocaleString('es-AR')}`);
+}
+
+function buildFilters() {
+  const dexes = [...new Set(TRADES.map(t => t.dex))].sort();
+  const pref = dexes.find(d => d !== 'hyperliquid') || dexes[0];
+  $('fDex').innerHTML = '<option value="">Todos los mercados</option>' +
+    dexes.map(d => `<option value="${d}"${d === pref && dexes.length > 1 ? ' selected' : ''}>${d === 'hyperliquid' ? 'Hyperliquid nativo' : d}</option>`).join('');
+  syncSyms();
+  $('fSym').value = ''; $('fSide').value = '';
+  setPreset('hoy');   // el foco arranca en el día; "Todo" está a un click
+}
+
+/* Presets de período. El panel de preparación y los insights siempre usan
+   el historial completo; esto solo mueve el foco de KPIs, gráficos y tabla. */
+function setPreset(p) {
+  const ts = TRADES.map(t => t.entryTime);
+  const hoy = new Date();
+  if (p === 'hoy') { $('fFrom').value = localDay(hoy); $('fTo').value = localDay(hoy); }
+  else if (p === '7d') { $('fFrom').value = localDay(hoy - 6 * 864e5); $('fTo').value = localDay(hoy); }
+  else { $('fFrom').value = localDay(Math.min(...ts)); $('fTo').value = localDay(Math.max(...ts)); }
+  $('preset').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+}
+/* fecha local en formato YYYY-MM-DD: usar toISOString acá desplaza el día
+   y deja afuera el primer o el último trade según el huso horario */
+function localDay(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function syncSyms() {
+  const dex = $('fDex').value, cur = $('fSym').value;
+  const syms = [...new Set(TRADES.filter(t => !dex || t.dex === dex).map(t => t.symbol))].sort();
+  $('fSym').innerHTML = '<option value="">Todos los símbolos</option>' + syms.map(s => `<option${s === cur ? ' selected' : ''}>${s}</option>`).join('');
+}
+
+/* ignoreDate=true devuelve todo el historial con los demás filtros aplicados:
+   el foco es el día, pero el contexto que juzga el día tiene que ser histórico. */
+function filtered(ignoreDate) {
+  const dex = $('fDex').value, sym = $('fSym').value, side = $('fSide').value;
+  const from = !ignoreDate && $('fFrom').value ? new Date($('fFrom').value + 'T00:00').getTime() : -Infinity;
+  const to = !ignoreDate && $('fTo').value ? new Date($('fTo').value + 'T23:59:59').getTime() : Infinity;
+  return TRADES.filter(t => (!dex || t.dex === dex) && (!sym || t.symbol === sym) && (!side || t.side === side)
+    && t.entryTime >= from && t.entryTime <= to);
+}
+
+function render() {
+  const sel = filtered(), base = filtered(true);
+  const s = computeStats(sel), sBase = computeStats(base);
+  $('count').textContent = `${s.n} cerradas · ${s.nOpen} abiertas`;
+  renderResumen(sBase, base);
+  renderDayPlan(sBase, base);
+  renderKpis(s);
+  renderHabitos(sBase);
+  renderRachas(sBase);
+  renderAdherence(sBase);
+  renderMitades(sBase);
+  renderComparativas(sBase);
+  renderInsights(sBase);
+  renderCharts(s, sel);
+  renderTables(sel);
+}
+
+/* Vista mínima: posición, día, y un solo aviso. Todo lo demás va detrás de "Ver detalle". */
+/* ===== La mascota =====
+   Un taladro con cara. La expresión cambia según lo que tenga para decir;
+   gira solo cuando habla y por defecto está dormido. */
+/* ===== Taladrín =====
+   Señalando: la carcasa es el cuerpo, la empuñadura la base, y el brazo apunta hacia
+   el contenido. El cuerpo tiene paleta propia, así que el estado va en los ojos, el dedo
+   y el aro del botón, no en el cuerpo entero. La mecha gira solo mientras habla. */
+/* Cejas mandonas: ojos chicos y cejas grandes que se llevan toda la expresión.
+   Es el estilo que mejor sostiene el tono seco de la voz, y no se rompe a tamaño botón. */
+const LN = '#0f1714';
+const ceja = (d, w) => `<path d="${d}" fill="none" stroke="${LN}" stroke-width="${w || 3.8}" stroke-linecap="round"/>`;
+const boca = (d, w) => `<path d="${d}" fill="none" stroke="${LN}" stroke-width="${w || 2.2}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const ojo = (x, y, r) => `<circle cx="${x}" cy="${y}" r="${r || 2.1}" fill="${LN}"/>`;
+const ojoCerrado = (x, y) => `<path d="M${x - 2.8} ${y + 1} q2.8 2.2 5.6 0" fill="none"
+  stroke="${LN}" stroke-width="1.8" stroke-linecap="round"/>`;
+
+const CARAS = {
+  dormido: ceja('M17 12 h11', 3.4) + ceja('M33 12 h11', 3.4) +
+    `<g class="ojos">${ojoCerrado(23, 19)}${ojoCerrado(38, 19)}</g>` + boca('M28 27 h6'),
+  atento:  ceja('M17 10.5 h11', 3.4) + ceja('M33 10.5 h11', 3.4) +
+    `<g class="ojos">${ojo(23, 19, 2.5)}${ojo(38, 19, 2.5)}</g>` + boca('M28 27 h6'),
+  seco:    ceja('M17 12 h11') + ceja('M33 12 h11') +
+    `<g class="ojos">${ojo(23, 19)}${ojo(38, 19)}</g>` + boca('M27 27.5 h8'),
+  ceja:    ceja('M16 8 l12 -2.6', 4) + ceja('M33 12.5 h11') +
+    `<g class="ojos">${ojo(23, 19)}${ojo(38, 19)}</g>` + boca('M27 28 q4 2 8 -3'),
+  guiño:   ceja('M16 9.5 l12 -2', 3.6) + ceja('M32 7.5 l12 2', 3.6) +
+    `<g class="ojos">${ojoCerrado(23, 19)}${ojo(38, 19)}</g>` + boca('M26 25 q5 5.5 10 0'),
+  furioso: ceja('M15 5 l13 6', 4.6) + ceja('M47 5 l-13 6', 4.6) +
+    `<g class="ojos"><path d="M19.5 20 h7" stroke="${LN}" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M34.5 20 h7" stroke="${LN}" stroke-width="3.4" stroke-linecap="round"/></g>` +
+    boca('M25 29 l4 -2.5 4 2.5 4 -2.5') +
+    `<path d="M44 2 l3 3 3-3 M50 5 l-3 3 3 3 M47 11 l-3-3-3 3 M41 5 l3-3-3-3"
+       stroke="#ffd0d0" stroke-width="1.9" fill="none" stroke-linecap="round"/>`,
+  alerta:  ceja('M16 6.5 l12 4', 4) + ceja('M45 6.5 l-12 4', 4) +
+    `<g class="ojos">${ojo(23, 20.5, 2.8)}${ojo(38, 20.5, 2.8)}</g>` + boca('M27 29 q4 -3 8 0')
+};
+/* Señalando: la carcasa es el cuerpo, la empuñadura la base, y el brazo apunta
+   a lo que estás mirando. */
+const drillSvg = (cara, tilt) => { const C = tilt
+  ? { cuerpo:'#c94f4f', sombra:'#8f3232', grip:'#4a2f2f', gripS:'#331e1e', metal:'#d9a3a3', mecha:'#f6e9e9' }
+  : { cuerpo:'#54b391', sombra:'#358068', grip:'#2f4a41', gripS:'#1e332c', metal:'#8fbfae', mecha:'#e9f6f1' };
+  return `<svg viewBox="-15 -4 99 73" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+  <g class="flota">
+  <path d="M21 31 L18 55 q-.6 4 4 4 h16 q4.6 0 4-4 L38 31z" fill="${C.grip}" stroke="#0f1714" stroke-width="2"/>
+  <path d="M30 31 L30 59 h8 q4.6 0 4-4 L38 31z" fill="${C.gripS}" stroke="none"/>
+  <rect x="15" y="53" width="30" height="10" rx="3.5" fill="${C.gripS}" stroke="#0f1714" stroke-width="2"/>
+  <path d="M22 38 h14 M21 43 h14 M21 48 h14" stroke="${C.gripS}" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <rect x="12" y="3" width="38" height="29" rx="12" fill="${C.cuerpo}" stroke="#0f1714" stroke-width="2.2"/>
+  <path d="M38 3 h0 a12 12 0 0 1 0 29 h-3 a12 12 0 0 0 0-29z" fill="${C.sombra}"/>
+  <path d="M50 10 l7 2.5 v10 L50 25z" fill="${C.metal}" stroke="#0f1714" stroke-width="1.6"/>
+  <path class="bit" d="M57 17.5 H71" stroke="${C.mecha}" stroke-width="3.6" stroke-linecap="butt"/>
+  <path d="M60 15 l3 5 M65 15 l3 5" stroke="${C.metal}" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <path d="M71 14.6 L77 17.5 L71 20.4z" fill="${C.mecha}" stroke="#0f1714" stroke-width="1.2"/>
+  <g class="brazo">
+    <path d="M12 23 q-10 4 -11 13" fill="none" stroke="#0f1714" stroke-width="3.6" stroke-linecap="round"/>
+    <circle cx="1.5" cy="38" r="4.4" fill="currentColor" stroke="#0f1714" stroke-width="1.8"/>
+  </g>
+  <g class="face">${CARAS[cara] || CARAS.seco}</g>
+  </g>
+</svg>`; };
+const CARA_DE = { alerta: 'alerta', seco: 'ceja', ok: 'guiño', info: 'seco', silencio: 'dormido' };
+
+/* Pasar por encima de cualquier métrica hace que Taladro explique la regla.
+   Al salir vuelve a lo que estaba diciendo. */
+let VOZ_BASE = null;
+function hablarHover(linea) {
+  if (!VOZ_BASE) VOZ_BASE = { html: $('dice').innerHTML, cls: $('tal').className };
+  $('tal').className = 'tal info habla';
+  $('dice').innerHTML = linea;
+}
+function volverVoz() {
+  if (!VOZ_BASE) return;
+  $('tal').className = VOZ_BASE.cls;
+  $('dice').innerHTML = VOZ_BASE.html;
+  VOZ_BASE = null;
+}
+/* El brazo apunta de verdad a lo que estás mirando: ángulo del hombro al elemento. */
+function apuntarA(el) {
+  try {
+    const r = el.getBoundingClientRect(), b = $('cuerpo').getBoundingClientRect();
+    if (!r.width || !b.width) return;
+    const hx = b.left + b.width * 0.26, hy = b.top + b.height * 0.42;   // el hombro
+    const th = Math.atan2((r.top + r.height / 2) - hy, (r.left + r.width / 2) - hx) * 180 / Math.PI;
+    // en reposo el brazo apunta abajo a la izquierda, a 125°
+    let ang = th - 125;
+    while (ang < -180) ang += 360;
+    while (ang > 180) ang -= 360;
+    // el rango útil va de abajo-izquierda a casi vertical: más allá el brazo se ve roto
+    $('tal').style.setProperty('--ang', Math.max(-15, Math.min(125, ang)).toFixed(1) + 'deg');
+  } catch (e) {}
+}
+const bajarBrazo = () => $('tal').style.setProperty('--ang', '0deg');
+
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest && e.target.closest('[data-tal]');
+  if (el && el.dataset.tal) { hablarHover(el.dataset.tal); apuntarA(el); }
+});
+document.addEventListener('mouseout', e => {
+  const el = e.target.closest && e.target.closest('[data-tal]');
+  const hacia = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-tal]');
+  if (el && !hacia) { volverVoz(); bajarBrazo(); }
+});
+
+/* Silenciar es por tipo de mensaje, no por el texto exacto: si el número cambia
+   —"van 27" y un rato después "van 28"— sigue siendo el mismo aviso y no vuelve a saltar. */
+function silenciado(id) {
+  if (!id) return false;
+  const hasta = (DATOS.callados || {})[id] || 0;
+  return Date.now() < hasta;
+}
+function renderTaladro(v) {
+  // un hito se festeja una sola vez: queda anotado y no vuelve a saltar
+  if (v.hito) { DATOS.hitos[v.hito.id] = v.hito.racha; guardar(); }
+  const abierto = v.habla && !silenciado(v.id);
+  const enTilt = v.id === 'tilt';
+  /* Con una posición abierta no duerme: hay plata puesta y la cara tiene que decirlo. */
+  const conPos = !!(LIVE && LIVE.pos && LIVE.pos.length);
+  let cara = enTilt ? 'furioso' : (CARA_DE[v.tono] || 'seco');
+  if (cara === 'dormido' && conPos) cara = 'atento';
+  $('tal').className = 'tal ' + v.tono + (abierto ? ' habla' : '') +
+    (enTilt ? ' tiltmode' : '') + (conPos ? ' enpos' : '');
+  $('dice').innerHTML = v.linea || 'Sin novedades.';
+  $('cuerpo').innerHTML = drillSvg(cara, enTilt);
+  $('tal').dataset.vozId = v.id || '';
+  $('tal').dataset.vozMs = v.silencio || '';
+}
+
+/* Rachas esperadas. Sirve para una sola cosa: que una mala racha se lea como
+   lo que estadísticamente es, y no como una falla personal. */
+function renderRachas(s) {
+  const r = rachasEsperadas(s, 100);
+  $('rachaPanel').classList.toggle('hide', !r || s.n < 10);
+  if (!r || s.n < 10) return;
+  $('rachas').innerHTML = r.filas.map(f => `
+    <div class="rf" data-tal="${esc(explica('racha', f, s))}">
+      <div class="rk">${f.k} o más seguidas</div>
+      <div class="rb"><div style="width:${Math.max(2, f.p * 100).toFixed(0)}%"></div></div>
+      <div class="rp">${(f.p * 100).toFixed(0)}%</div>
+    </div>`).join('');
+  $('rachaPie').innerHTML =
+    `Con tu acierto actual de <b>${pct(s.winRate)}</b>, así se reparten las rachas perdedoras en 100 operaciones. ` +
+    `La racha larga típica es de <b>${r.tipica}</b> y la peor que tuviste fue de <b>${r.real}</b>. ` +
+    `Una racha larga no dice que estés haciendo algo mal: es el precio normal de un método con acierto parcial, ` +
+    `y por eso lo que se mide arriba son las acciones y no el resultado.`;
+}
+
+function renderHabitos(s) {
+  const H = habitos(s.trades || [], s);
+  $('habPanel').classList.toggle('hide', !H.length);
+  if (!H.length) return;
+  $('habitos').innerHTML = H.map(h => {
+    const p = h.meta ? Math.min(100, (h.racha / h.meta) * 100) : 100;
+    const dots = (h.serie || []).map(x =>
+      `<i class="${x.ok ? 's' : 'n'}" title="${fdate(x.t.entryTime)} · ${x.t.symbol} · ${usd(x.t.net)}"></i>`).join('');
+    return `<div class="hab ${h.cumple ? '' : 'roto'}" data-tal="${esc(explica('habito', h, s))}">
+      <div class="hn">${h.nombre}<span>${h.accion}</span></div>
+      <div class="hmid"><div class="dots">${dots}</div><div class="hb"><div style="width:${p}%"></div></div></div>
+      <div class="hv"><b>${h.racha}</b> al hilo${h.meta ? ` · próximo hito ${h.meta}` : ''}
+        <span>récord ${h.mejor} · ${h.cumplidas} de las últimas ${h.deN}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderResumen(s, base) {
+  const td0 = todayBySession(base);
+  const posAn = (LIVE && LIVE.pos.length) ? analyzePositions(LIVE.pos, LIVE.ord, s) : [];
+  renderFranja(s, posAn);
+  renderTaladro(taladro(s, posAn, td0, null, DATOS.hitos));
+  const enTilt = renderTilt(s);
+  renderEnTrade(s, posAn);
+  renderPrep(s, base, posAn, enTilt);
+  renderTira(s, td0);
+  renderBarra(s, td0);
+}
+
+/* ===== La franja actual manda =====
+   Cuando no tenés nada abierto, lo que más te sirve no es un consejo: es el número
+   de la sesión que está corriendo. Es tu espejo justo antes de entrar. */
+const RANGO = { asia: [1200, 1590], hueco: [150, 240], pre: [240, 570], rueda: [570, 960], after: [960, 1200] };
+let _etm = null;
+function etMin() {
+  try {
+    if (!_etm) _etm = new Intl.DateTimeFormat('en-US',
+      { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' });
+    const p = {}; for (const x of _etm.formatToParts(new Date())) p[x.type] = x.value;
+    return (+p.hour % 24) * 60 + (+p.minute);
+  } catch (e) { const d = new Date(Date.now() - 4 * 36e5); return d.getUTCHours() * 60 + d.getUTCMinutes(); }
+}
+
+function renderFranja(s, posAn) {
+  const id = sessionOf(Date.now()), S = SESSIONS[id], b = s.bySession[id];
+  const conMuestra = Object.entries(s.bySession).filter(([, v]) => v.n >= 3)
+    .sort((a, b2) => (b2[1].net / b2[1].n) - (a[1].net / a[1].n));
+  const pos = conMuestra.findIndex(x => x[0] === id);
+  const total = conMuestra.length;
+  let rank = '', clase = '';
+  if (pos === 0 && total >= 2) { rank = 'tu mejor franja'; clase = 'buena'; }
+  else if (pos === total - 1 && total >= 2) { rank = 'tu peor franja'; clase = 'mala'; }
+  else if (pos > 0) rank = `${pos + 1}ª de ${total}`;
+  else if (!b || b.n < 3) rank = 'sin muestra todavía';
+
+  const r = relojSesion();
+  const m = etMin(), rg = RANGO[id] || [0, 1440];
+  let mm = m; if (rg[1] > 1440 && m < 400) mm = m + 1440;
+  const prog = Math.max(0, Math.min(1, (mm - rg[0]) / (rg[1] - rg[0])));
+  const falta = ms => { const t = Math.max(0, Math.floor(ms / 60000)); return t >= 60 ? `${Math.floor(t / 60)} h ${t % 60} min` : `${t} min`; };
+
+  $('franja').className = 'franja ' + clase;
+  $('franja').innerHTML = `
+    <div class="top">
+      <span class="nom">${S.label}</span><span class="hs mono">${S.art}</span>
+      ${rank ? `<span class="rank">${rank}</span>` : ''}
+    </div>
+    ${(() => {
+      const tr = TRAMOS.find(x => x.id === r.tramo);
+      if (!tr) return '';
+      const v = s.byTramo[tr.id];
+      return `<div class="tramo" data-tal="La rueda tiene forma de U: mucho volumen en la apertura, hueco al mediodía y repunte en el cierre. Los bordes de cada tramo son horarios, no pronósticos.">
+        <span class="tn">${tr.label}</span><span class="th mono">${tr.art}</span>
+        ${v ? `<span class="tv mono ${cls(v.net)}">${usd(v.net)}</span>
+          <span class="tx">en ${v.n} ${v.n === 1 ? 'operación' : 'operaciones'} tuyas</span>`
+        : `<span class="tx">todavía no operaste en este tramo</span>`}</div>`;
+    })()}
+    <div class="cifras">
+      <span class="big mono plata ${b ? cls(b.net) : 'mut'}">${b ? usd(b.net) : '—'}</span>
+      ${b ? `<span class="sub"><b class="mono">${b.n}</b> operaciones ·
+        <b class="mono">${((b.wins / b.n) * 100).toFixed(0)}%</b> de acierto ·
+        <b class="mono ${cls(b.net / b.n)}">${usd(b.net / b.n)}</b> por operación</span>`
+      : `<span class="sub">todavía no operaste en esta franja</span>`}
+    </div>
+    <div class="barra"><i style="width:${(prog * 100).toFixed(1)}%"></i></div>
+    <div class="pie">
+      <span>${r.prox.label} <b class="mono">en ${falta(r.prox.ms)}</b></span>
+      ${r.evento ? `<span class="down">${r.evento.label} en ${falta(r.evento.ms)}</span>`
+        : r.ventana ? `<span>${r.ventana.label}</span>` : `<span class="mono">${(prog * 100).toFixed(0)}% de la franja</span>`}
+    </div>`;
+}
+
+/* La barra fija lleva el contexto encima: si estás mirando la tabla allá abajo,
+   igual sabés en qué franja estás y cómo viene el día. */
+function renderBarra(s, td0) {
+  const id = sessionOf(Date.now()), b = s.bySession[id];
+  const t = s.tilt;
+  $('bctx').innerHTML =
+    (t && t.activo ? `<span class="down"><b>TILT</b> · ${t.racha} seguidas</span>` : '') +
+    `<span>${SESSIONS[id].label}${b ? ` <b class="mono ${cls(b.net)}">${usd(b.net)}</b>` : ''}</span>` +
+    (() => { const tr = TRAMOS.find(x => x.id === tramoDe(Date.now())); const v = tr && s.byTramo[tr.id];
+      return tr ? `<span>${tr.label}${v ? ` <b class="mono ${cls(v.net)}">${usd(v.net)}</b>` : ''}</span>` : ''; })() +
+    `<span>hoy <b class="mono ${cls(td0.net)}">${usd(td0.net)}</b> · ${td0.hoy.length} ${td0.hoy.length === 1 ? 'op' : 'ops'}</span>`;
+}
+addEventListener('scroll', () => {
+  $('barra').classList.toggle('ver', scrollY > 220);
+}, { passive: true });
+$('barra').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
+
+/* Tira densa: cuatro números en una línea, sin tarjetas. */
+function renderTira(s, td0) {
+  /* La racha corre para los dos lados, y con una sola operación no hay racha:
+     ahí se muestra el resultado de la última y listo. */
+  const T = s.trades || [];
+  const ult = T[T.length - 1];
+  let corrida = 0, gana = false;
+  if (ult) {
+    gana = ult.net >= 0;
+    for (let i = T.length - 1; i >= 0 && (T[i].net >= 0) === gana; i--) corrida++;
+  }
+  const rachaVal = !ult ? '—' : corrida >= 2 ? String(corrida) : usd(ult.net);
+  const rachaSub = !ult ? 'todavía sin operaciones'
+    : corrida >= 2 ? (gana ? 'ganadoras seguidas' : 'perdedoras seguidas')
+    : (gana ? 'la última cerró en verde' : 'la última cerró en rojo');
+  const rachaCls = !ult ? 'mut' : gana ? 'up' : corrida >= 3 ? 'down' : 'mut';
+  let racha = gana ? 0 : corrida;
+  const H = habitos(s.trades || [], s);
+  const flojo = H.slice().sort((a, b) => a.pct - b.pct)[0];
+  const fuerte = H.filter(h => h.racha > 0).sort((a, b) => b.racha - a.racha)[0];
+  const pr = s.presupuesto;
+  $('resumen').innerHTML = `<div class="tira">
+    <div><div class="k">Hoy</div><div class="v mono plata ${cls(td0.net)}">${usd(td0.net)}</div>
+      <div class="n">${td0.hoy.length} ${td0.hoy.length === 1 ? 'operación' : 'operaciones'}</div></div>
+    <div><div class="k">Racha</div>
+      <div class="v mono ${rachaCls}">${rachaVal}</div>
+      <div class="n">${rachaSub}</div></div>
+    ${pr ? `<div data-tal="${esc(explica('presupuesto', pr, s))}"><div class="k">Presupuesto</div>
+      <div class="v mono ${pr.estado === 'en banda' ? 'up' : pr.estado === 'corto' ? 'mut' : 'down'}">${(pr.uso * 100).toFixed(0)}%</div>
+      <div class="n">${pr.estado}</div></div>` : ''}
+    ${fuerte ? `<div><div class="k">Mejor racha</div><div class="v mono up">${fuerte.racha}</div>
+      <div class="n">${fuerte.nombre.toLowerCase()}</div></div>` : ''}
+    ${flojo ? `<div data-tal="${esc(explica('habito', flojo, s))}"><div class="k">Más flojo</div>
+      <div class="v mono ${flojo.pct < .5 ? 'down' : 'mut'}">${flojo.cumplidas}<span style="opacity:.5">/${flojo.deN}</span></div>
+      <div class="n">${flojo.nombre.toLowerCase()}</div></div>` : ''}
+  </div>`;
+}
+
+/* Reloj: solo hechos de calendario. Qué sesión corre, cuánto falta para el próximo
+   cambio estructural, y si hay un evento del Fed en las próximas horas. */
+function renderReloj() {
+  const r = relojSesion();
+  const ses = SESSIONS[sessionOf(Date.now())];
+  const ms = m => {
+    if (m < 0) return 'ya';
+    const s = Math.floor(m / 1000), h = Math.floor(s / 3600), mi = Math.floor((s % 3600) / 60);
+    return h ? `${h} h ${mi} min` : mi ? `${mi} min` : `${s % 60} s`;
+  };
+  $('reloj').innerHTML =
+    `<span><b>${ses.label}</b> · ${ses.art}</span>` +
+    `<span>${r.prox.label} <b>en ${ms(r.prox.ms)}</b> · ${r.prox.art}</span>` +
+    (r.evento ? `<span class="ev">${r.evento.label} <b>en ${ms(r.evento.ms)}</b> · ${r.evento.art}</span>` : '') +
+    (r.ventana ? `<span class="vt">${r.ventana.label}</span>` : '');
+}
+setInterval(() => { if (TRADES.length) { const st = computeStats(filtered(true)); renderFranja(st, []); } }, 1000);
+
+/* ===== Modo tilt =====
+   Cuando se activa, reemplaza a la preparación: no tiene sentido hablar de la próxima
+   entrada mientras el proceso está roto. La salida es por conducta, nunca por resultado. */
+function renderTilt(s) {
+  const t = s.tilt;
+  const on = !!(t && t.activo);
+  $('tiltPanel').classList.toggle('hide', !on);
+  document.body.classList.toggle('tiltpage', on);
+  if (on) document.body.style.setProperty('--tf', Math.min(1, (t.racha - 2) / 6).toFixed(2));
+  else document.body.classList.remove('destapado');
+  if (!on) return false;
+  $('tiltRacha').innerHTML = `<b class="down mono">${t.racha}</b> pérdidas seguidas`;
+  $('tiltQue').innerHTML = `<div class="tq">Qué se rompió</div>` +
+    t.motivos.map(m => `<div class="tm">${m[0].toUpperCase() + m.slice(1)}</div>`).join('');
+  const p = Math.min(100, (t.limpias / 2) * 100);
+  $('tiltSpec').innerHTML = `
+    <div class="tq">Cómo tiene que ser la próxima</div>
+    <div class="tspec">
+      <div><span>Tamaño máximo</span><b class="mono">${usd(t.med * 2)}</b></div>
+      <div><span>Pérdida máxima</span><b class="mono">${usd(t.banda * 1.5)}</b></div>
+      <div><span>Cerrada por</span><b>vos, no el exchange</b></div>
+    </div>`;
+  /* La barra cuenta conducta, no plata: por eso una perdedora dentro de la banda
+     suma y una ganadora al doble del tamaño no. Es lo único que depende de vos. */
+  $('tiltSalida').innerHTML = `
+    <div class="tq" style="margin-top:14px">Cómo se sale</div>
+    <div class="tsal">Con dos operaciones dentro de tu banda de ${usd(t.banda)}
+      y con tu tamaño de ${usd(t.med)}.
+      <b>Perder dentro de la banda cuenta. Ganar fuera del tamaño no.</b></div>
+    <div class="tbar"><i style="width:${p}%"></i></div>
+    <div class="tp mono">${t.limpias} de 2</div>`;
+  return true;
+}
+
+/* ===== Modo dentro: gestionar la posición y el momento ===== */
+function renderEnTrade(s, posAn) {
+  $('enTrade').classList.toggle('hide', !posAn.length);
+  if (!posAn.length) return;
+  const n = x => x == null ? '—' : x.toLocaleString('es-AR', { maximumFractionDigits: 4 });
+  const banda = (s.adherence ? s.adherence.rec.avgLoss : s.avgLoss) || 0;
+  const total = posAn.reduce((a, p) => a + p.uPnl, 0);
+  const enRiesgo = posAn.reduce((a, p) => a + (p.pnlAtStop != null ? Math.min(0, p.pnlAtStop) : -p.margin), 0);
+  const varias = posAn.length > 1;
+
+  $('enTiempo').textContent = varias ? `${posAn.length} posiciones abiertas` : '';
+  $('enPnl').innerHTML = `<div class="enp ${cls(total)}">${usd(total)}
+    <span>${varias
+      ? `${posAn.map(p => p.symbol + ' ' + p.side).join(' · ')} — ${usd(enRiesgo)} en riesgo si saltan todos los stops`
+      : `${posAn[0].symbol} ${posAn[0].side}${posAn[0].lev ? ' · ' + posAn[0].lev + 'x' : ''} · ${usd0(posAn[0].notional)}`}</span></div>`;
+
+  // un bloque por posición: cada una tiene su propio stop y su propia distancia
+  $('enDatos').innerHTML = posAn.map(r => `
+    <div class="pblk" data-tal="${esc(explica('posicion', r, s))}">
+      ${varias ? `<div class="ph">${r.symbol} <span class="tag ${r.side === 'long' ? 'up' : 'down'}">${r.side}</span>
+        ${r.lev ? `<span class="tag">${r.lev}x</span>` : ''} <span class="mut">${usd0(r.notional)}</span>
+        <b class="${cls(r.uPnl)}">${usd(r.uPnl)}</b></div>` : ''}
+      <div class="eng">
+        <div><span>Entrada</span>${n(r.entry)}</div>
+        <div><span>Mark</span>${n(r.mark)}</div>
+        <div><span>Stop</span>${r.stopPx ? n(r.stopPx) + ` <small class="mut">${r.distStop.toFixed(2)}%</small>` : '<b class="down">sin stop</b>'}</div>
+        <div><span>Liquidación</span>${r.liqPx ? n(r.liqPx) + ` <small class="mut">${r.distLiq.toFixed(1)}%</small>` : '—'}</div>
+        <div><span>Si salta el stop</span>${r.pnlAtStop != null
+          ? `<b class="${cls(r.pnlAtStop)}">${usd(r.pnlAtStop)}</b>` : '<b class="down">todo el margen</b>'}</div>
+      </div>
+    </div>`).join('');
+
+  // el ancla: una frase por posición, más las generales al final
+  const a = [];
+  for (const r of posAn) {
+    const q = varias ? `${r.symbol}: ` : '';
+    if (r.pnlAtStop == null) {
+      a.push(['bad', `${q}no hay stop cargado, así que la única salida definida es la liquidación, ` +
+        `a ${r.distLiq ? r.distLiq.toFixed(1) + '%' : 's/d'}.`]);
+    } else if (r.pnlAtStop >= 0) {
+      a.push(['good', `${q}el stop ya está en ganancia, así que pase lo que pase esta operación suma ${usd(r.pnlAtStop)}.`]);
+    } else if (banda > 0) {
+      const veces = Math.abs(r.pnlAtStop) / banda;
+      a.push([veces <= 1.5 ? 'good' : 'warn',
+        `${q}si salta el stop anotás ${usd(r.pnlAtStop)}, ${veces.toFixed(1)}x tu banda habitual de ${usd(banda)}.`]);
+    }
+  }
+  if (varias && banda > 0) {
+    a.push([Math.abs(enRiesgo) <= banda * 2 ? 'good' : 'warn',
+      `Entre las ${posAn.length} arriesgás ${usd(enRiesgo)} si saltan todos los stops, ` +
+      `${(Math.abs(enRiesgo) / banda).toFixed(1)}x tu banda de una sola operación.`]);
+  }
+  if (s.n >= 10 && s.winRate) {
+    a.push(['info', `Con tu acierto de ${pct(s.winRate)}, ${Math.round((1 - s.winRate) * 10)} de cada 10 ` +
+      `operaciones cierran en rojo. Que esta cierre en rojo no significaría que la tomaste mal: ` +
+      `eso lo dicen el stop y el tamaño, que ya elegiste.`]);
+  }
+  if (s.adherence && s.adherence.rec.durWin) {
+    const gw = Math.round(s.adherence.rec.durWin / 6e4), pd = Math.round(s.adherence.rec.durLoss / 6e4);
+    // la hora de apertura no viene en el estado: sale del trade abierto que reconstruimos
+    const ab = TRADES.find(t => t.open && t.coin === posAn[0].coin);
+    const lleva = ab ? (Date.now() - ab.entryTime) / 6e4 : null;
+    const fmin = m => m < 120 ? `${Math.round(m)} minutos` : m < 2880 ? `${(m / 60).toFixed(1)} horas` : `${(m / 1440).toFixed(1)} días`;
+    a.push(['info', `Tus ganadoras suelen estar abiertas ${gw} minutos y tus perdedoras ${pd}.` +
+      (lleva != null ? ` Esta lleva ${fmin(lleva)}.` : '')]);
+  }
+  $('enAncla').innerHTML = a.map(([lv, t]) => `<div class="anc ${lv}">${t}</div>`).join('');
+}
+
+function renderDayPlan(s, base) {
+  const p = buildDayPlan(s);
+  const S = SESSIONS[p.session];
+  $('sessNow').innerHTML = `Ahora: <b>${S.label}</b> · ${S.art} · ${new Date().toLocaleString('es-AR')}`;
+
+  // franja de sesiones del día: qué hiciste hoy en cada una, con el histórico debajo
+  const td = todayBySession(base);
+  const orden = ['asia', 'hueco', 'pre', 'rueda', 'after'];
+  $('sessStrip').innerHTML = orden.map(k => {
+    const h = td.by[k], hist = s.bySession[k];
+    return `<div class="ss ${k === p.session ? 'now' : ''}">
+      <div class="n">${SESSIONS[k].label}</div><div class="h">${SESSIONS[k].art}</div>
+      <div class="v ${h ? cls(h.net) : 'mut'}">${h ? usd(h.net) : '—'}</div>
+      <div class="h">${h ? h.n + ' hoy · ' : 'sin ops hoy · '}${hist ? 'histórico ' + usd(hist.net) : 's/ historial'}</div>
+    </div>`;
+  }).join('');
+
+  renderLive(s);
+  $('alerts').innerHTML = p.alerts.length
+    ? p.alerts.map(a => `<div class="ins ${a.level}"><div class="t">${a.title}</div><div class="d">${a.text}</div></div>`).join('')
+    : '<div class="mut">Sin alertas de contexto.</div>';
+  $('rules').innerHTML = p.rules.map(r => `<div>${r}</div>`).join('');
+}
+
+function renderComparativas(s) {
+  const c = s.comparativas || [];
+  $('compPanel').classList.toggle('hide', !c.length);
+  if (!c.length) return;
+  $('tComp').innerHTML =
+    '<thead><tr><th>Contexto</th><th>Ops</th><th>Por operación</th><th>El resto</th><th>Diferencia</th><th>Estable</th></tr></thead><tbody>' +
+    c.map(r => {
+      const d = r.avg - r.avgResto;
+      const est = r.difA == null || r.difB == null
+        ? '<span class="mut" title="muestra insuficiente en alguna mitad">—</span>'
+        : r.estable ? '<span class="up">sí</span>' : '<span class="down">no</span>';
+      return `<tr><td>${r.label}</td><td class="mut">${r.n}</td>
+        <td class="${cls(r.avg)}">${usd(r.avg)}</td>
+        <td class="mut">${usd(r.avgResto)} <small>(${r.nResto})</small></td>
+        <td class="${cls(d)}"><b>${d > 0 ? '+' : ''}${usd(d)}</b></td>
+        <td>${est}</td></tr>`;
+    }).join('') + '</tbody>';
+}
+
+function renderMitades(s) {
+  const m = s.mitades;
+  $('mitPanel').classList.toggle('hide', !m);
+  if (!m) return;
+  const f = ts => ts ? new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '';
+  const filas = [
+    ['Operaciones', m.vieja.n, m.nueva.n, x => String(x)],
+    ['Expectativa por operación', m.vieja.exp, m.nueva.exp, usd],
+    ['Win rate', m.vieja.wr, m.nueva.wr, pct],
+    ['Pérdida promedio', m.vieja.avgLoss, m.nueva.avgLoss, usd]
+  ];
+  $('tMit').innerHTML =
+    `<thead><tr><th>Métrica</th><th>Primera mitad<br><small class="mut">${f(m.vieja.desde)} a ${f(m.vieja.hasta)}</small></th>
+      <th>Segunda mitad<br><small class="mut">${f(m.nueva.desde)} a ${f(m.nueva.hasta)}</small></th><th></th></tr></thead><tbody>` +
+    filas.map(([lab, a, b, fmt]) => {
+      const dir = b > a ? 'up' : b < a ? 'down' : 'mut';
+      return `<tr><td>${lab}</td><td class="mut">${fmt(a)}</td><td><b>${fmt(b)}</b></td>
+        <td class="${dir}">${b > a ? '▲' : b < a ? '▼' : '·'}</td></tr>`;
+    }).join('') + '</tbody>';
+}
+
+/* ===== Modo preparación =====
+   Aparece cuando no tenés nada abierto. No sugiere operar: convierte tu propia banda de
+   pérdida en un tamaño, antes de entrar, que es cuando la cuenta todavía sirve para algo. */
+function renderPrep(s, base, posAn, enTilt) {
+  const listo = !posAn.length && TRADES.length > 0 && !enTilt;
+  $('prepPanel').classList.toggle('hide', !listo);
+  if (!listo) return;
+
+  $('prepSes').innerHTML = '';
+
+  /* Una sola cosa para hacer mejor que la anterior. Si la venís ignorando cambia de
+     forma: primero invitación, después el costo medido, después un compromiso concreto.
+     Una sugerencia repetida diez veces que no mueve nada es una sugerencia fallada. */
+  const H = habitos(s.trades || [], s);
+  const objetivo = H.filter(x => !x.cumple).sort((a, b) => a.pct - b.pct)[0] ||
+    H.slice().sort((a, b) => a.pct - b.pct)[0];
+  const ult = (s.trades || [])[(s.trades || []).length - 1];
+  if (!objetivo) { $('mejorar').innerHTML = ''; return; }
+
+  // cuántas operaciones pasaron desde que este objetivo apareció por primera vez
+  if (!DATOS.objetivo || DATOS.objetivo.id !== objetivo.id) {
+    DATOS.objetivo = { id: objetivo.id, ops: s.n };
+    guardar();
+  }
+  const desde = Math.max(0, s.n - DATOS.objetivo.ops);
+  const nivel = desde < 5 ? 1 : desde < 15 ? 2 : 3;
+  const T = (s.trades || []);
+  const cumplen = T.filter(t => {
+    if (objetivo.id === 'limite') return t.makerEntry === true;
+    if (objetivo.id === 'intacto') return !t.liquidated;
+    return true;
+  }).length;
+
+  const cuerpo = {
+    1: `<div class="mb">${objetivo.accion}</div>
+        <div class="mn">${objetivo.nombre}: ${objetivo.racha} al hilo,
+          ${objetivo.cumplidas} de las últimas ${objetivo.deN}${objetivo.meta ? `, próximo hito ${objetivo.meta}` : ''}.</div>`,
+    2: `<div class="mb">${objetivo.accion}</div>
+        <div class="mn">Van <b>${desde}</b> operaciones desde que apareció esto y seguís en
+          ${objetivo.cumplidas} de ${objetivo.deN}.${objetivo.id === 'limite'
+            ? ` ${T.length - cumplen} de tus ${T.length} entradas fueron a mercado.` : ''}</div>`,
+    3: `<div class="mb">Una sola, la próxima: ${objetivo.accion}</div>
+        <div class="mn">Llevás <b>${desde}</b> operaciones con esto delante sin que se mueva.
+          No es un plan para siempre: es una operación, y la verifico sola.</div>`
+  }[nivel];
+
+  const c = DATOS.compromiso;
+  const pendiente = c && c.id === objetivo.id && s.n === c.ops;
+  const veredicto = c && c.id === objetivo.id && s.n > c.ops
+    ? (objetivo.serie && objetivo.serie.length && objetivo.serie[objetivo.serie.length - 1].ok
+        ? ['ok', 'Dijiste que la próxima sí, y la cumpliste.']
+        : ['no', 'Dijiste que la próxima sí y no salió. Queda anotado, nada más.'])
+    : null;
+  if (veredicto) { delete DATOS.compromiso; guardar(); }
+
+  const m = ult && ult.exitTime ? (Date.now() - ult.exitTime) / 6e4 : null;
+  $('mejorar').innerHTML = `
+    <div class="mej n${nivel}" data-tal="${esc(explica('habito', objetivo, s))}">
+      <div class="mt">${nivel === 3 ? 'Un compromiso' : 'Mejor que la anterior'}</div>
+      ${cuerpo}
+      ${veredicto ? `<div class="mv ${veredicto[0]}">${veredicto[1]}</div>` : ''}
+      ${nivel === 3 && !pendiente && !veredicto
+        ? `<button class="fbtn mcomp">Me comprometo con la próxima</button>` : ''}
+      ${pendiente ? `<div class="mv ok">Anotado. Lo chequeo cuando cierres la próxima.</div>` : ''}
+      ${ult && ult.exitTime ? `<div class="mu">La anterior: ${ult.symbol} ${ult.side}, ${usd(ult.net)},
+        ${Math.round(ult.durationMs / 6e4)} min, hace ${m < 60 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h'}.</div>` : ''}
+    </div>`;
+  const btn = $('mejorar').querySelector && $('mejorar').querySelector('.mcomp');
+  if (btn) btn.onclick = () => { DATOS.compromiso = { id: objetivo.id, ops: s.n }; guardar(); render(); };
+
+  const ref = (s.adherence ? s.adherence.rec.avgLoss : s.avgLoss) || 0.2;
+  const pr = s.presupuesto;
+  if (!$('riesgo').value) $('riesgo').value = ref.toFixed(2);
+  if (pr && !$('stopPct').dataset.tocado) $('stopPct').value = pr.stopTipico.toFixed(2);
+  calcular();
+
+  // presupuesto: la fuga silenciosa va en las dos direcciones
+  if (pr) {
+    const col = { corto: 'warn', 'en banda': 'up', pasado: 'down' }[pr.estado];
+    const txt = { corto: 'venís entrando por debajo de lo que tu regla habilita',
+      'en banda': 'estás entrando en línea con tu regla',
+      pasado: 'venís entrando por encima de lo que tu regla habilita' }[pr.estado];
+    $('presu').innerHTML = `
+      <div class="pb" data-tal="${esc(explica('presupuesto', pr, s))}"><div class="pbf ${col}" style="width:${Math.min(100, pr.uso * 66).toFixed(0)}%"></div>
+        <span class="pbm"></span></div>
+      <div class="pl"><b class="${col === 'up' ? 'up' : col === 'warn' ? 'mut' : 'down'}">${(pr.uso * 100).toFixed(0)}% del presupuesto</b>
+        — ${txt}. Habilitado ${usd(pr.habilitado)} con una banda de ${usd(pr.banda)}
+        y un stop típico de ${pr.stopTipico.toFixed(2)}%.</div>
+      <div class="ult">
+        <span class="k">Tus últimas ${pr.ventana}</span>
+        ${pr.ultimos.map(n => `<i class="${n > pr.habilitado * 1.5 ? 'alto' : n < pr.habilitado * 0.6 ? 'bajo' : 'bien'}"
+            style="height:${Math.max(8, (n / (Math.max(pr.habilitado, ...pr.ultimos) || 1)) * 32).toFixed(0)}px"
+            title="${usd(n)}"></i>`).join('')}
+        <span class="k">mediana <b class="mono">${usd(pr.usado)}</b></span>
+      </div>`;
+  } else $('presu').innerHTML = '';
+
+  $('prepNotas').innerHTML = '';
+}
+
+/* tamaño = riesgo / distancia al stop. Todo lo demás sale de ahí. */
+function calcular() {
+  const stop = +$('stopPct').value, riesgo = +$('riesgo').value;
+  const margen = LIVE ? LIVE.equity : 0;
+  if (!(stop > 0) || !(riesgo > 0)) { $('calc').innerHTML = ''; return; }
+  const notional = riesgo / (stop / 100);
+  const lev = margen > 0 ? notional / margen : null;
+  const liq = lev ? (1 / lev - 0.025) * 100 : null;   // mantenimiento 2,5% (activos de máx. 20x)
+  const mal = liq != null && stop >= liq;
+  const c = [`<div><span>Notional</span><b>${usd(notional)}</b></div>`,
+    `<div><span>Si salta el stop</span><b class="down">${usd(-riesgo)}</b></div>`];
+  if (lev) c.push(`<div><span>Apalancamiento</span><b>${lev.toFixed(1)}x</b></div>`);
+  if (liq != null) c.push(`<div class="${mal ? 'mal' : ''}"><span>Liquidación a</span>
+    <b class="${mal ? 'down' : ''}">${liq.toFixed(1)}%</b></div>`);
+  $('calc').innerHTML = c.join('');
+  $('prepNotas').dataset.mal = mal ? '1' : '';
+}
+
+function renderLive(s) {
+  if (!LIVE || !LIVE.pos.length) {
+    if (!LIVE) { $('livePos').innerHTML = ''; return; }
+    const diag = (RAW && RAW.diag) ? RAW.diag.join(' · ') : '';
+    $('livePos').innerHTML = `<div class="mut" style="margin-bottom:12px">Sin posiciones abiertas` +
+      (LIVE.equity ? ` · equity ${usd(LIVE.equity)}` : '') + `.` +
+      (!LIVE.equity && diag ? `<br><small>La API no devolvió el estado de la cuenta. Diagnóstico: ${diag}</small>` : '') +
+      `</div>`;
+    return;
+  }
+  const rows = analyzePositions(LIVE.pos, LIVE.ord, s);
+  const n = x => x == null ? '—' : x.toLocaleString('es-AR', { maximumFractionDigits: 4 });
+  $('livePos').innerHTML = rows.map(r => `
+    <div class="pos">
+      <div class="hd">
+        <span class="sym">${r.symbol}</span>
+        <span class="tag ${r.side === 'long' ? 'up' : 'down'}">${r.side}</span>
+        ${r.lev ? `<span class="tag">${r.lev}x</span>` : ''}
+        <span class="${cls(r.uPnl)}">${usd(r.uPnl)}</span>
+        <span class="mut">${usd0(r.notional)} de notional sobre ${usd(r.margin)} de margen</span>
+      </div>
+      <div class="g">
+        <div><span>Entrada</span>${n(r.entry)}</div>
+        <div><span>Mark</span>${n(r.mark)}</div>
+        <div><span>Stop</span>${r.stopPx ? n(r.stopPx) + ` <small class="mut">(${r.distStop.toFixed(2)}%)</small>` : '<b class="down">sin stop</b>'}</div>
+        <div><span>Objetivo</span>${r.tpPx ? n(r.tpPx) + ` <small class="mut">(${r.distTp.toFixed(2)}%)</small>` : '—'}</div>
+        <div><span>Liquidación</span>${r.liqPx ? n(r.liqPx) + ` <small class="mut">(${r.distLiq.toFixed(2)}%)</small>` : '—'}</div>
+        <div><span>Si salta el stop</span>${r.pnlAtStop != null
+          ? `<b class="${cls(r.pnlAtStop)}">${usd(r.pnlAtStop)}</b>` : '<b class="down">todo el margen</b>'}</div>
+      </div>
+      ${r.alerts.map(a => `<div class="a ${a.level}">${a.text}</div>`).join('')}
+    </div>`).join('');
+}
+
+function renderAdherence(s) {
+  const a = s.adherence;
+  $('adhPanel').classList.toggle('hide', !a);
+  if (!a) return;
+  const dur = ms => !ms ? '—' : ms < 36e5 ? (ms / 6e4).toFixed(0) + ' min' : (ms / 36e5).toFixed(1) + ' h';
+  const rows = [
+    ['Win rate', pct(a.rec.winRate), pct(a.base.winRate), a.rec.winRate - a.base.winRate, 'Acertar más seguido'],
+    ['Expectativa', usd(a.rec.expectancy), usd(a.base.expectancy), a.rec.expectancy - a.base.expectancy, 'Ganancia esperada por operación'],
+    ['Pérdida promedio', usd(a.rec.avgLoss), usd(a.base.avgLoss), a.base.avgLoss - a.rec.avgLoss, 'Más chica es mejor: el stop se está respetando'],
+    ['Peor pérdida', usd(a.rec.worstLoss), usd(a.base.worstLoss), a.base.worstLoss - a.rec.worstLoss, 'El techo del daño de una sola operación'],
+    ['Duración perdedoras', dur(a.rec.durLoss), dur(a.base.durLoss), a.base.durLoss - a.rec.durLoss, 'Cortar rápido lo que no funciona'],
+    ['Duración ganadoras', dur(a.rec.durWin), dur(a.base.durWin), a.rec.durWin - a.base.durWin, 'Dejar correr lo que sí funciona'],
+    ['Notional promedio', usd(a.rec.notional), usd(a.base.notional), 0, 'Tamaño de la apuesta'],
+    ['Liquidaciones', String(a.rec.liq), String(a.base.liq), a.base.liq - a.rec.liq, 'Cero es el único número aceptable']
+  ];
+  $('tAdh').innerHTML = '<thead><tr><th>Métrica</th><th>Últimas ' + a.rec.n + '</th><th>Anteriores ' + a.base.n +
+    '</th><th></th><th>Qué querés ver</th></tr></thead><tbody>' +
+    rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td class="mut">${r[2]}</td>
+      <td class="${r[3] > 0 ? 'up' : r[3] < 0 ? 'down' : 'mut'}">${r[3] > 0 ? '▲' : r[3] < 0 ? '▼' : '·'}</td>
+      <td class="mut d">${r[4]}</td></tr>`).join('') + '</tbody>';
+}
+
+function renderKpis(s) {
+  const k = [];
+  const push = (lab, val, c, note) => k.push(`<div class="kpi"><div class="lab">${lab}</div>
+    <div class="val ${c || ''}">${val}</div><div class="note">${note || ''}</div></div>`);
+  if (!s.n) { $('kpis').innerHTML = '<div class="kpi"><div class="lab">Sin datos</div><div class="val mut">—</div><div class="note">Ningún trade cerrado con estos filtros</div></div>'; return; }
+  push('PnL neto', usd(s.net), cls(s.net), `bruto ${usd(s.gross)}`);
+  push('Expectativa', usd(s.expectancy), cls(s.expectancy), 'por operación');
+  push('Win rate', pct(s.winRate), '', `${s.wins.length}G / ${s.losses.length}P`);
+  push('Payoff', isFinite(s.payoff) ? s.payoff.toFixed(2) + 'x' : '∞', s.payoff >= 1 ? 'up' : 'down', `gana ${usd0(s.avgWin)} / pierde ${usd0(s.avgLoss)}`);
+  push('Profit factor', isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞', s.profitFactor >= 1 ? 'up' : 'down', 'bruto ganado / perdido');
+  push('Costos', usd(-(s.fees - Math.min(s.funding, 0))), 'down', `fees ${usd0(s.fees)} · funding ${usd0(s.funding)}`);
+  push('Drawdown máx.', usd(-s.maxDD), 'down', `${s.maxLossStreak} pérdidas seguidas`);
+  push('Liquidaciones', String(s.liq.n), s.liq.n ? 'down' : 'up', s.liq.n ? `${usd(s.liq.net)} · sin ellas ${usd(s.net - s.liq.net)}` : 'ninguna');
+  push('Operaciones', String(s.n), '', `${usd0(s.volume)} de volumen`);
+  $('kpis').innerHTML = k.join('');
+}
+
+function renderInsights(s) {
+  const ins = buildInsights(s);
+  $('insights').innerHTML = ins.length
+    ? ins.map(i => `<div class="ins ${i.level}"><div class="t">${i.title}</div><div class="d">${i.text}</div></div>`).join('')
+    : '<div class="mut">Sin operaciones cerradas para analizar con estos filtros.</div>';
+}
+
+/* ===================== gráficos ===================== */
+const GRID = '#242d3a', TICK = '#7d8896';
+const SESCOL = { asia: '#8b7cf6', hueco: '#4b5568', pre: '#d8a640', rueda: '#58a6ff', after: '#e07a5f', finde: '#3a4356' };
+/* a qué sesión pertenece una hora de Buenos Aires, por dónde arranca */
+const sesDeHora = h => h <= 3 || h >= 21 ? 'asia' : h === 4 ? 'hueco'
+  : h <= 10 ? 'pre' : h <= 16 ? 'rueda' : 'after';
+
+/* Reloj de actividad: 24 h en círculo. Largo del gajo = cuántas operaciones,
+   color = si esa hora suma o resta. Los arcos de afuera son las sesiones. */
+function renderRelojAct(s) {
+  const S = 300, cx = S / 2, cy = S / 2, r0 = 58, esc = 46;
+  const maxN = Math.max(1, ...Object.values(s.byHour).map(v => v.n));
+  const ang = h => (h / 24) * Math.PI * 2 - Math.PI / 2;
+  const P = (a, r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  let o = '';
+  const ARCOS = [['asia', 21, 27.5], ['hueco', 3.5, 5], ['pre', 5, 10.5], ['rueda', 10.5, 17], ['after', 17, 21]];
+  for (const [id, de, a] of ARCOS) {
+    const R = r0 + 60, a1 = ang(de), a2 = ang(a);
+    const [x1, y1] = P(a1, R), [x2, y2] = P(a2, R);
+    o += `<path d="M${x1} ${y1} A${R} ${R} 0 ${(a - de) > 12 ? 1 : 0} 1 ${x2} ${y2}"
+      stroke="${SESCOL[id]}" stroke-width="7" fill="none" opacity=".85"><title>${SESSIONS[id].label}</title></path>`;
+  }
+  o += `<circle cx="${cx}" cy="${cy}" r="${r0}" fill="none" stroke="${GRID}" stroke-width="1.5"/>`;
+  for (let h = 0; h < 24; h++) {
+    const b = s.byHour[h]; if (!b || !b.n) continue;
+    const r1 = r0, r2 = r0 + (b.n / maxN) * esc;
+    const a1 = ang(h) + 0.014, a2 = ang(h + 1) - 0.014;
+    const [q1, q2] = P(a1, r1), [q3, q4] = P(a2, r1), [q5, q6] = P(a2, r2), [q7, q8] = P(a1, r2);
+    o += `<path d="M${q1} ${q2} A${r1} ${r1} 0 0 1 ${q3} ${q4} L${q5} ${q6} A${r2} ${r2} 0 0 0 ${q7} ${q8} Z"
+      fill="${b.net > 0 ? '#3fb950' : b.net < 0 ? '#f85149' : TICK}" opacity=".92">
+      <title>${String(h).padStart(2, '0')}:00 · ${b.n} operaciones · ${usd(b.net)}</title></path>`;
+  }
+  for (let h = 0; h < 24; h += 3) {
+    const [tx, ty] = P(ang(h + 0.5), r0 + 76);
+    o += `<text x="${tx}" y="${ty + 3}" font-size="9.5" fill="${TICK}" text-anchor="middle">${String(h).padStart(2, '0')}</text>`;
+  }
+  o += `<text x="${cx}" y="${cy + 4}" font-size="10" fill="${TICK}" text-anchor="middle">${s.n} operaciones</text>`;
+  $('relojAct').innerHTML = `<svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:300px;margin:0 auto;display:block">${o}</svg>`;
+}
+function chart(id, cfg) {
+  if (CHARTS[id]) CHARTS[id].destroy();
+  const base = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a212b', borderColor: GRID, borderWidth: 1 } },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { color: TICK, maxRotation: 0, autoSkipPadding: 18 } },
+      y: { grid: { color: GRID }, ticks: { color: TICK, callback: v => '$' + v.toLocaleString('es-AR') } }
+    }
+  };
+  const o = cfg.options || {};
+  cfg.options = Object.assign({}, base, o, {
+    plugins: Object.assign({}, base.plugins, o.plugins || {}),
+    scales: Object.assign({}, base.scales, o.scales || {})
+  });
+  CHARTS[id] = new Chart($(id), cfg);
+}
+const barColors = arr => arr.map(v => v >= 0 ? '#3fb950' : '#f85149');
+
+function renderCharts(s, sel) {
+  if (!s.n) { Object.values(CHARTS).forEach(c => c.destroy()); CHARTS = {}; return; }
+
+  chart('cEquity', {
+    type: 'line',
+    data: {
+      labels: s.equity.map(p => new Date(p.time).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })),
+      datasets: [{
+        data: s.equity.map(p => p.cum), borderColor: s.net >= 0 ? '#3fb950' : '#f85149',
+        backgroundColor: (s.net >= 0 ? '#3fb95022' : '#f8514922'), fill: true, tension: .15,
+        pointRadius: 0, borderWidth: 2
+      }]
+    }
+  });
+
+  const cuenta = serieCuenta(RAW && RAW.portfolio);
+  $('cuentaPanel').classList.toggle('hide', cuenta.length < 2);
+  if (cuenta.length >= 2) {
+    chart('cCuenta', {
+      type: 'line',
+      data: {
+        labels: cuenta.map(p => new Date(p.time).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })),
+        datasets: [{ data: cuenta.map(p => p.v), borderColor: '#58a6ff', backgroundColor: '#58a6ff22',
+          fill: true, tension: .15, pointRadius: 0, borderWidth: 2 }]
+      }
+    });
+  }
+
+  const sess = Object.entries(s.bySession).sort((a, b) => b[1].net - a[1].net);
+  chart('cSess', {
+    type: 'bar',
+    data: {
+      labels: sess.map(x => SESSIONS[x[0]].label),
+      datasets: [{ data: sess.map(x => x[1].net), backgroundColor: barColors(sess.map(x => x[1].net)) }]
+    },
+    options: { plugins: { tooltip: { callbacks: {
+      afterLabel: c => `${SESSIONS[sess[c.dataIndex][0]].art} · ${sess[c.dataIndex][1].n} operaciones` } } } }
+  });
+
+  const syms = Object.entries(s.bySymbol).sort((a, b) => b[1].net - a[1].net).slice(0, 14);
+  chart('cSym', {
+    type: 'bar',
+    data: { labels: syms.map(x => x[0]), datasets: [{ data: syms.map(x => x[1].net), backgroundColor: barColors(syms.map(x => x[1].net)) }] }
+  });
+
+  /* el día arranca a las 21:00, que es cuando abre Asia: así ninguna sesión
+     queda cortada entre el principio y el final del eje */
+  const orden = Array.from({ length: 24 }, (_, i) => (21 + i) % 24);
+  const hv = orden.map(h => (s.byHour[h] || { net: 0 }).net);
+  chart('cHour', {
+    type: 'bar',
+    data: {
+      labels: orden.map(h => String(h).padStart(2, '0')),
+      datasets: [{ data: hv, backgroundColor: orden.map(h => SESCOL[sesDeHora(h)]) }]
+    },
+    options: { plugins: { tooltip: { callbacks: {
+      afterLabel: c => {
+        const h = orden[c.dataIndex], b = s.byHour[h];
+        return `${SESSIONS[sesDeHora(h)].label}${b ? ` · ${b.n} operaciones` : ''}`;
+      } } } } }
+  });
+  renderRelojAct(s);
+
+  const dOrder = ['< 5 min', '5-30 min', '30 min - 4 h', '4-24 h', '1-7 días', '> 7 días'].filter(k => s.byDur[k]);
+  chart('cDur', {
+    type: 'bar',
+    data: { labels: dOrder, datasets: [{ data: dOrder.map(k => s.byDur[k].net), backgroundColor: barColors(dOrder.map(k => s.byDur[k].net)) }] }
+  });
+
+  const nets = sel.filter(t => !t.open).map(t => t.net).sort((a, b) => a - b);
+  const lo = nets[0], hi = nets[nets.length - 1], NB = 16, w = (hi - lo) / NB || 1;
+  const bins = Array(NB).fill(0), mids = [];
+  for (let i = 0; i < NB; i++) mids.push(lo + w * (i + .5));
+  nets.forEach(v => bins[Math.min(NB - 1, Math.floor((v - lo) / w))]++);
+  chart('cDist', {
+    type: 'bar',
+    data: { labels: mids.map(m => usd0(m)), datasets: [{ data: bins, backgroundColor: barColors(mids) }] },
+    options: { scales: { x: { grid: { color: GRID }, ticks: { color: TICK, maxRotation: 0, autoSkipPadding: 12 } },
+      y: { grid: { color: GRID }, ticks: { color: TICK, precision: 0, callback: v => v } } } }
+  });
+}
+
+/* ===================== tablas ===================== */
+const TESIS = ['', 'Tendencia', 'Reversión', 'Ruptura', 'Noticia', 'Otro'];
+let ABIERTA = null;
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const COLS = [
+  ['entryTime', 'Entrada', t => fdate(t.entryTime)],
+  ['session', 'Sesión', t => `<span class="tag">${SESSIONS[t.session].label}</span>`],
+  ['symbol', 'Símbolo', t => `${t.symbol} <span class="tag ${t.side === 'long' ? 'up' : 'down'}">${t.side}</span>` +
+    (t.liquidated ? ' <span class="tag liq">LIQUIDADO</span>' : '')],
+  ['qty', 'Tamaño', t => t.qty.toLocaleString('es-AR', { maximumFractionDigits: 4 })],
+  ['notional', 'Notional', t => usd0(t.notional)],
+  ['avgEntry', 'Precio ent.', t => t.avgEntry.toLocaleString('es-AR', { maximumFractionDigits: 4 })],
+  ['avgExit', 'Precio sal.', t => t.avgExit == null ? '—' : t.avgExit.toLocaleString('es-AR', { maximumFractionDigits: 4 })],
+  ['durationMs', 'Duración', t => fdur(t.durationMs)],
+  ['fees', 'Fees', t => `<span class="down">${usd(-t.fees)}</span>`],
+  ['funding', 'Funding', t => `<span class="${cls(t.funding)}">${usd(t.funding)}</span>`],
+  ['net', 'PnL neto', t => `<span class="${cls(t.net)}">${usd(t.net)}</span>`],
+  ['retPct', 'Ret. s/ notional', t => `<span class="${cls(t.retPct)}">${t.retPct.toFixed(2)}%</span>`]
+];
+
+function renderTables(sel) {
+  const closed = sel.filter(t => !t.open);
+  const rows = closed.slice().sort((a, b) => {
+    const va = a[SORT.k], vb = b[SORT.k];
+    return (typeof va === 'string' ? va.localeCompare(vb) : (va || 0) - (vb || 0)) * SORT.dir;
+  });
+  const editor = t => {
+    const n = DATOS.notas[t.id] || {};
+    return `<tr class="ed"><td colspan="${COLS.length + 1}">
+      <div class="edrow">
+        <label class="campo">Tesis
+          <select data-f="tesis" data-id="${t.id}">${TESIS.map(x =>
+            `<option value="${x}"${(n.tesis || '') === x ? ' selected' : ''}>${x || '—'}</option>`).join('')}</select></label>
+        <label class="campo" style="flex:1">Etiquetas
+          <input data-f="tags" data-id="${t.id}" value="${esc((n.tags || []).join(', '))}" placeholder="separadas por coma"></label>
+      </div>
+      <textarea data-f="nota" data-id="${t.id}" rows="2" placeholder="Qué viste, qué esperabas, qué pasó">${esc(n.nota || '')}</textarea>
+    </td></tr>`;
+  };
+  $('tTrades').innerHTML =
+    '<thead><tr>' + COLS.map(c => `<th data-k="${c[0]}">${c[1]}${SORT.k === c[0] ? (SORT.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('') +
+    '<th class="nc">Nota</th></tr></thead><tbody>' +
+    rows.map(t => {
+      const n = DATOS.notas[t.id] || {};
+      const tiene = n.tesis || (n.tags || []).length || n.nota;
+      return '<tr>' + COLS.map(c => `<td>${c[2](t)}</td>`).join('') +
+        `<td class="nc"><button class="nota ${tiene ? 'on' : ''}" data-abrir="${t.id}">${tiene ? '●' : '✎'}</button></td></tr>` +
+        (ABIERTA === t.id ? editor(t) : '');
+    }).join('') + '</tbody>';
+
+  $('tTrades').querySelectorAll('th[data-k]').forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    SORT = { k, dir: SORT.k === k ? -SORT.dir : -1 };
+    renderTables(sel);
+  });
+  $('tTrades').querySelectorAll('[data-abrir]').forEach(b => b.onclick = () => {
+    ABIERTA = ABIERTA === b.dataset.abrir ? null : b.dataset.abrir;
+    renderTables(sel);
+  });
+  $('tTrades').querySelectorAll('[data-f]').forEach(el => {
+    const grabar = () => {
+      const id = el.dataset.id, f = el.dataset.f;
+      const n = DATOS.notas[id] || (DATOS.notas[id] = {});
+      n[f] = f === 'tags' ? el.value.split(',').map(x => x.trim()).filter(Boolean) : el.value;
+      if (!n.tesis && !(n.tags || []).length && !n.nota) delete DATOS.notas[id];
+      guardar();
+      aplicarNotas(TRADES);
+      marcaArchivo(HANDLE ? 'guardado' : 'local');
+    };
+    el.onchange = grabar;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.onblur = grabar;
+  });
+
+  const open = sel.filter(t => t.open);
+  $('openPanel').classList.toggle('hide', !open.length);
+  if (open.length) {
+    $('tOpen').innerHTML =
+      '<thead><tr><th>Abierta</th><th>Símbolo</th><th>Tamaño</th><th>Notional</th><th>Precio ent.</th><th>Fees</th><th>Funding</th></tr></thead><tbody>' +
+      open.map(t => `<tr><td>${fdate(t.entryTime)}</td>
+        <td>${t.symbol} <span class="tag ${t.side === 'long' ? 'up' : 'down'}">${t.side}</span></td>
+        <td>${(t.entrySz - t.exitSz).toLocaleString('es-AR', { maximumFractionDigits: 4 })}</td>
+        <td>${usd0(t.notional)}</td><td>${t.avgEntry.toLocaleString('es-AR', { maximumFractionDigits: 4 })}</td>
+        <td class="down">${usd(-t.fees)}</td><td class="${cls(t.funding)}">${usd(t.funding)}</td></tr>`).join('') +
+      '</tbody>';
+  }
+}
+
+function exportCsv() {
+  const rows = filtered().filter(t => !t.open);
+  /* fechas en hora local (Buenos Aires), no UTC: es la misma hora que ves en los gráficos */
+  const loc = ts => {
+    const d = new Date(ts), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+  const head = ['entrada_local', 'salida_local', 'sesion', 'dex', 'simbolo', 'lado', 'liquidado', 'tamano',
+    'precio_entrada', 'precio_salida', 'notional', 'duracion_min', 'pnl_bruto', 'fees', 'funding', 'pnl_neto', 'ret_pct'];
+  const lines = rows.map(t => [
+    loc(t.entryTime), loc(t.exitTime), SESSIONS[t.session].label, t.dex, t.symbol, t.side, t.liquidated ? 'SI' : '',
+    t.qty, t.avgEntry, t.avgExit, t.notional, (t.durationMs / 6e4).toFixed(1),
+    t.gross.toFixed(4), t.fees.toFixed(4), t.funding.toFixed(4), t.net.toFixed(4), t.retPct.toFixed(3)
+  ].join(','));
+  download(new Blob([head.join(',') + '\n' + lines.join('\n')], { type: 'text/csv' }), 'trades_trade_xyz.csv');
+}
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ===================== eventos ===================== */
+$('go').onclick = async () => {
+  const user = $('addr').value.trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(user)) return say('Esa no parece una dirección válida (0x + 40 caracteres hex).', true);
+  store.set('tradexyz_addr', user);
+  $('go').disabled = true; say('Conectando con Hyperliquid…');
+  try {
+    ingest(await pull(user));
+    envivo(true);   // a partir de acá se actualiza solo
+  } catch (e) {
+    say('No pude leer la API desde acá: ' + e.message, true);
+    $('hint').innerHTML = `Si el navegador bloqueó el pedido por CORS, abrí <code>app.trade.xyz</code>,
+      pegá el snippet de descarga en la consola (F12) y volvé acá con el botón <b>Cargar JSON</b>.`;
+  }
+  $('go').disabled = false;
+};
+$('loadBtn').onclick = () => $('file').click();
+$('file').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const j = JSON.parse(r.result);
+      ingest({ user: j.user || '', fills: j.fills || (Array.isArray(j) ? j : []), funding: j.funding || [], state: j.state || null, pulledAt: j.pulledAt || Date.now() });
+    } catch (err) { say('No pude leer ese archivo: ' + err.message, true); }
+  };
+  r.readAsText(f);
+};
+$('saveBtn').onclick = () => download(new Blob([JSON.stringify(RAW)], { type: 'application/json' }),
+  'trade_xyz_' + new Date().toISOString().slice(0, 10) + '.json');
+$('csv').onclick = exportCsv;
+$('fDex').onchange = () => { syncSyms(); render(); };
+['fSym', 'fSide', 'fFrom', 'fTo'].forEach(id => $(id).onchange = render);
+$('preset').onclick = e => { if (e.target.dataset && e.target.dataset.p) { setPreset(e.target.dataset.p); render(); } };
+/* ===== En vivo =====
+   Refresco incremental cada 20 s: solo pide los fills posteriores al último que ya tenemos,
+   más estado y órdenes. No rearma los filtros para no pisarte la selección. */
+let TIMER = null;
+async function refrescar() {
+  if (!RAW || !/^0x[0-9a-fA-F]{40}$/.test(RAW.user || '')) return;
+  const u = RAW.user;
+  try {
+    const desde = RAW.fills.length ? RAW.fills[RAW.fills.length - 1].time + 1 : 0;
+    const nf = await post({ type: 'userFillsByTime', user: u, startTime: desde, aggregateByTime: true });
+    if (Array.isArray(nf) && nf.length) {
+      const vistos = new Set(RAW.fills.map(f => f.tid));
+      RAW.fills = RAW.fills.concat(nf.filter(f => !vistos.has(f.tid)));
+    }
+    RAW.state = RAW.state || {}; RAW.orders = RAW.orders || {};
+    for (const dx of (RAW.dexes || [''])) {
+      const k = dx || 'hyperliquid';
+      try { const st = await post({ type: 'clearinghouseState', user: u, dex: dx }); if (st) RAW.state[k] = st; } catch (e) {}
+      try { const o = await post({ type: 'frontendOpenOrders', user: u, dex: dx }); if (Array.isArray(o)) RAW.orders[k] = o; } catch (e) {}
+    }
+    RAW.pulledAt = Date.now();
+    TRADES = buildTrades(RAW.fills);
+    attachFunding(TRADES, RAW.funding || []);
+    aplicarNotas(TRADES);
+    LIVE = flattenLive(RAW);
+    render();
+    $('vivo').innerHTML = `<span class="up">●</span> en vivo · ${new Date().toLocaleTimeString('es-AR')}`;
+  } catch (e) {
+    $('vivo').innerHTML = `<span class="down">●</span> sin conexión`;
+  }
+}
+function envivo(on) {
+  clearInterval(TIMER);
+  $('btnVivo').textContent = on ? '⏸ Pausar' : '▶ En vivo';
+  $('btnVivo').dataset.on = on ? '1' : '';
+  if (on) { refrescar(); TIMER = setInterval(refrescar, 20000); }
+  else $('vivo').textContent = 'pausado';
+}
+$('btnVivo').onclick = () => envivo(!$('btnVivo').dataset.on);
+['stopPct', 'riesgo'].forEach(id => $(id).oninput = () => { $(id).dataset.tocado = '1'; calcular(); });
+
+$('destapar').onclick = () => {
+  const d = document.body.classList.toggle('destapado');
+  $('destapar').textContent = d ? 'Volver a taparlos' : 'Mostrar los números igual';
+};
+$('cierra').onclick = e => {
+  e.stopPropagation();
+  const id = $('tal').dataset.vozId, ms = +$('tal').dataset.vozMs || 6 * 36e5;
+  if (id) {
+    DATOS.callados = DATOS.callados || {};
+    for (const k in DATOS.callados) if (DATOS.callados[k] < Date.now()) delete DATOS.callados[k];
+    DATOS.callados[id] = Date.now() + ms;
+    guardar();
+  }
+  $('tal').classList.remove('habla');
+};
+/* Cada toque es una cosa distinta: algo para probar, algo que no estás mirando,
+   o algo del proceso. El índice se guarda, así que no te repite entre sesiones. */
+/* Al tocarlo viene al centro y grande: cada toque es una cosa distinta. */
+const TIPOS = { probar: ['ok', 'para probar'], mirar: ['info', 'no lo estás mirando'], proceso: ['seco', 'tu proceso'] };
+function siguienteDelRepertorio() {
+  if (!TRADES.length) return null;
+  const base = filtered(true), s = computeStats(base);
+  const pos = (LIVE && LIVE.pos.length) ? analyzePositions(LIVE.pos, LIVE.ord, s) : [];
+  const R = repertorio(s, pos, todayBySession(base));
+  if (!R.length) return null;
+  DATOS.rep = ((DATOS.rep || 0) + 1) % R.length;
+  guardar();
+  return { it: R[DATOS.rep], i: DATOS.rep, total: R.length };
+}
+/* Si una sugerencia se puede hacer acá adentro, va con botón: sugerir algo
+   y no llevarte al lugar es la mitad del trabajo. */
+const ACCIONES = {
+  anotar: () => {
+    cerrarFoco();
+    $('detalle').classList.remove('hide');
+    $('verMas').textContent = tapa(DATOS.tapa)[1];
+    setPreset('all');                       // la última operación tiene que estar en la tabla
+    const T = TRADES.filter(t => !t.open);
+    if (!T.length) return;
+    ABIERTA = T[T.length - 1].id;
+    render();
+    const tabla = $('tTrades');
+    const fila = tabla.querySelector && tabla.querySelector('tr.ed');
+    if (fila && fila.scrollIntoView) {
+      fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const sel = fila.querySelector('select');
+      if (sel) setTimeout(() => sel.focus(), 450);
+    }
+  }
+};
+function abrirFoco() {
+  const x = siguienteDelRepertorio();
+  if (!x) return;
+  const [tono, etiq] = TIPOS[x.it.tipo] || ['info', ''];
+  $('foco').className = 'foco on ' + tono;
+  $('fsvg').innerHTML = drillSvg(CARA_DE[tono] || 'seco', false);
+  $('fet').textContent = etiq;
+  $('ftx').textContent = x.it.linea;
+  const a = x.it.accion;
+  $('facc').innerHTML = a && ACCIONES[a.id] ? `<button class="fbtn" data-acc="${a.id}">${a.texto}</button>` : '';
+  $('fpie').innerHTML = `<b>${x.i + 1}</b> de ${x.total} · tocá para la siguiente · Esc para cerrar`;
+}
+const cerrarFoco = () => { $('foco').className = 'foco'; };
+$('cuerpo').onclick = abrirFoco;
+$('foco').onclick = e => {
+  const b = e.target.closest('[data-acc]');
+  if (b) { e.stopPropagation(); (ACCIONES[b.dataset.acc] || (() => {}))(); return; }
+  if (e.target.closest('.fcaja')) abrirFoco(); else cerrarFoco();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarFoco(); });
+/* El botón nunca dice lo mismo dos veces seguidas. Cada par es abrir y cerrar
+   de la misma metáfora, así que la broma se sostiene en los dos estados. */
+const TAPAS = [
+  ['Ver los números', 'Ocultar los números'],
+  ['Abrir el capot', 'Cerrar el capot'],
+  ['Chequear el motor', 'Listo, tapalo'],
+  ['Abrir el placard', 'Cerrar el placard'],
+  ['Data dura', 'Basta de data'],
+  ['Los ingredientes', 'Guardar la receta'],
+  ['Deep dive', 'Salir a respirar'],
+  ['La letra chica', 'Ya la leí'],
+  ['Destapar la olla', 'Tapar la olla'],
+  ['Ver las tripas', 'Suficientes tripas'],
+  ['La cocina', 'Salir de la cocina'],
+  ['Sacar la tapa', 'Poner la tapa'],
+  ['Abrir el baúl', 'Cerrar el baúl'],
+  ['Lo que hay abajo', 'Ya vi lo que había']
+];
+function tapa(i) { return TAPAS[(i || 0) % TAPAS.length]; }
+$('verMas').onclick = () => {
+  const oculto = $('detalle').classList.toggle('hide');
+  if (oculto) { DATOS.tapa = ((DATOS.tapa || 0) + 1) % TAPAS.length; guardar(); }
+  $('verMas').textContent = tapa(DATOS.tapa)[oculto ? 0 : 1];
+  if (!oculto) render();   // los gráficos necesitan el contenedor visible para dimensionarse
+};
+$('reset').onclick = () => { buildFilters(); render(); };
+$('addr').onkeydown = e => { if (e.key === 'Enter') $('go').click(); };
+
+$('linkBtn').onclick = vincularArchivo;
+$('cambiar').onclick = () => { $('setup').classList.remove('compacto'); $('lema').classList.remove('hide'); $('addr').focus(); };
+
+$('verMas').textContent = tapa(DATOS.tapa)[0];
+
+const saved = store.get('tradexyz_addr');
+if (saved) $('addr').value = saved;
+cargarDatos();
+$('hint').innerHTML = `<b>Pegá la dirección de tu wallet</b> (la de Hyperliquid o trade.xyz) y apretá Analizar.<br>
+  Talastrat lee tus operaciones de la blockchain: <b>no pide clave privada, no puede operar y no puede tocar tus fondos</b>.
+  Todo se procesa en tu navegador y no se envía a ningún servidor.<br>
+  Si el navegador bloquea el pedido a la API, usá <b>Cargar JSON</b>.`;
+</script>
+</body>
+</html>
