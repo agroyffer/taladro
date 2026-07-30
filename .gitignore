@@ -1,0 +1,15 @@
+# nada con una wallet real adentro se publica
+snippet_consola.js
+fees_rapido.js
+*_privado.*
+/uploads/
+/uploads-tmp/
+/datos/
+
+# scratch
+*.tmp
+.DS_Store
+Thumbs.db
+
+# lo compila GitHub en cada push, no se sube a mano
+/index.html
